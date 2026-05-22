@@ -1,0 +1,216 @@
+@import "tailwindcss";
+
+/* ============================================
+   OPTIXFLOW — QUANT TERMINAL DESIGN SYSTEM
+   ============================================ */
+
+:root {
+  /* Core Color Palette */
+  --ox-bg-void: #030508;
+  --ox-bg-base: #07090f;
+  --ox-bg-surface: #0c1018;
+  --ox-bg-elevated: #111722;
+  --ox-bg-overlay: #161d2e;
+
+  /* Borders */
+  --ox-border-subtle: rgba(255, 255, 255, 0.04);
+  --ox-border-default: rgba(255, 255, 255, 0.07);
+  --ox-border-strong: rgba(255, 255, 255, 0.12);
+  --ox-border-focus: rgba(0, 212, 255, 0.4);
+
+  /* Accent — Electric Cyan */
+  --ox-accent-cyan: #00d4ff;
+  --ox-accent-cyan-dim: rgba(0, 212, 255, 0.15);
+  --ox-accent-cyan-glow: rgba(0, 212, 255, 0.25);
+
+  /* Accent — Neon Emerald (Profit) */
+  --ox-accent-green: #00e5a0;
+  --ox-accent-green-dim: rgba(0, 229, 160, 0.12);
+  --ox-accent-green-glow: rgba(0, 229, 160, 0.2);
+
+  /* Accent — Plasma Red (Loss) */
+  --ox-accent-red: #ff4d6a;
+  --ox-accent-red-dim: rgba(255, 77, 106, 0.12);
+  --ox-accent-red-glow: rgba(255, 77, 106, 0.2);
+
+  /* Accent — Gold (Breakeven) */
+  --ox-accent-amber: #f5a623;
+  --ox-accent-amber-dim: rgba(245, 166, 35, 0.15);
+
+  /* Text */
+  --ox-text-primary: #e4e8f0;
+  --ox-text-secondary: #8892a4;
+  --ox-text-muted: #4a5568;
+  --ox-text-accent: var(--ox-accent-cyan);
+
+  /* Typography */
+  --font-display: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+
+  /* Shadows & Glows */
+  --ox-shadow-card: 0 4px 24px rgba(0, 0, 0, 0.4);
+  --ox-shadow-elevated: 0 8px 48px rgba(0, 0, 0, 0.6);
+  --ox-glow-cyan: 0 0 20px rgba(0, 212, 255, 0.2);
+  --ox-glow-green: 0 0 20px rgba(0, 229, 160, 0.2);
+  --ox-glow-red: 0 0 20px rgba(255, 77, 106, 0.2);
+}
+
+/* Force dark theme globally */
+html {
+  color-scheme: dark;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background: var(--ox-bg-void);
+  color: var(--ox-text-primary);
+  font-family: var(--font-display), -apple-system, BlinkMacSystemFont, sans-serif;
+  overflow: hidden;
+  height: 100dvh;
+}
+
+/* ============================================
+   GLASSMORPHISM UTILITIES
+   ============================================ */
+
+.glass {
+  background: rgba(13, 17, 26, 0.7);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid var(--ox-border-default);
+}
+
+.glass-elevated {
+  background: rgba(17, 23, 34, 0.8);
+  backdrop-filter: blur(24px) saturate(200%);
+  -webkit-backdrop-filter: blur(24px) saturate(200%);
+  border: 1px solid var(--ox-border-strong);
+  box-shadow: var(--ox-shadow-elevated);
+}
+
+.glass-hover {
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+.glass-hover:hover {
+  background: rgba(22, 29, 46, 0.9);
+  border-color: var(--ox-border-strong);
+}
+
+/* ============================================
+   GLOW EFFECTS
+   ============================================ */
+
+.glow-cyan {
+  box-shadow: var(--ox-glow-cyan);
+}
+.glow-green {
+  box-shadow: var(--ox-glow-green);
+}
+.glow-red {
+  box-shadow: var(--ox-glow-red);
+}
+
+.text-glow-cyan {
+  text-shadow: 0 0 16px rgba(0, 212, 255, 0.5);
+}
+.text-glow-green {
+  text-shadow: 0 0 16px rgba(0, 229, 160, 0.5);
+}
+.text-glow-red {
+  text-shadow: 0 0 16px rgba(255, 77, 106, 0.5);
+}
+
+/* ============================================
+   ANIMATED GRADIENT BACKGROUND
+   ============================================ */
+
+.bg-grid {
+  background-image:
+    linear-gradient(rgba(0, 212, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 212, 255, 0.03) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+.bg-radial-glow {
+  background: radial-gradient(
+    ellipse 80% 60% at 50% 0%,
+    rgba(0, 212, 255, 0.06) 0%,
+    transparent 70%
+  );
+}
+
+/* ============================================
+   CUSTOM SCROLLBAR
+   ============================================ */
+
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 212, 255, 0.3);
+}
+
+/* ============================================
+   SLIDER OVERRIDES (Radix)
+   ============================================ */
+
+.ox-slider [data-orientation="horizontal"] {
+  height: 4px;
+}
+
+/* ============================================
+   TYPOGRAPHY UTILITIES
+   ============================================ */
+
+.font-mono {
+  font-family: var(--font-mono), 'Courier New', monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.text-ticker {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+/* ============================================
+   ANIMATION KEYFRAMES
+   ============================================ */
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.6; }
+}
+
+@keyframes ticker-slide {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.4s ease forwards;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease infinite;
+}
