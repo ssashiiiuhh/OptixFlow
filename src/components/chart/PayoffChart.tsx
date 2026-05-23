@@ -262,9 +262,7 @@ export default function PayoffChart({ params }: PayoffChartProps) {
                 baseValue={0}
                 stroke="none"
                 fill="url(#profitGradient)"
-                isAnimationActive={true}
-                animationDuration={500}
-                animationEasing="ease-out"
+                isAnimationActive={false}
               />
 
               <Area
@@ -273,9 +271,7 @@ export default function PayoffChart({ params }: PayoffChartProps) {
                 baseValue={0}
                 stroke="none"
                 fill="url(#lossGradient)"
-                isAnimationActive={true}
-                animationDuration={500}
-                animationEasing="ease-out"
+                isAnimationActive={false}
               />
 
               {/*
@@ -299,9 +295,7 @@ export default function PayoffChart({ params }: PayoffChartProps) {
                   stroke: "var(--ox-bg-void)",
                   strokeWidth: 2,
                 }}
-                isAnimationActive={true}
-                animationDuration={500}
-                animationEasing="ease-out"
+                isAnimationActive={false}
                 filter="url(#lineGlow)"
               />
             </ComposedChart>

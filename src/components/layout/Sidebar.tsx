@@ -5,6 +5,7 @@ import {
   BarChart2,
   BookOpen,
   ChevronRight,
+  Cpu,
   Layers,
   Settings,
   TrendingUp,
@@ -20,6 +21,7 @@ import { cn } from "@/lib/utils";
 const NAV_ITEMS = [
   { icon: TrendingUp, label: "Strategy Lab", href: "/" },
   { icon: BarChart2,  label: "Analytics",    href: "/analytics" },
+  { icon: Cpu,        label: "Trade Intel",  href: "/intelligence" },
   { icon: Layers,     label: "Portfolio",    href: "/portfolio" },
   { icon: BookOpen,   label: "Playbook",     href: "/playbook" },
 ];

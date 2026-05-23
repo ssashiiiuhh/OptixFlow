@@ -1,15 +1,20 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { motion, useScroll, useTransform, MotionValue } from "framer-motion";
+import { motion, MotionValue, useTransform } from "framer-motion";
 
 interface AmbientParticlesProps {
   cameraX: MotionValue<number>;
   cameraY: MotionValue<number>;
+  activeColor?: string;
+  decayIntensity?: number;             // 0 = normal, 1 = fully decayed
+  ivIntensityRef?: React.RefObject<number>; // ref to IV intensity (0=low, 1=high) — written at 60fps without re-renders
 }
 
-export default function AmbientParticles({ cameraX, cameraY }: AmbientParticlesProps) {
+export default function AmbientParticles({ cameraX, cameraY, activeColor, decayIntensity = 0, ivIntensityRef }: AmbientParticlesProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const decayRef = useRef(decayIntensity);
+  useEffect(() => { decayRef.current = decayIntensity; }, [decayIntensity]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -41,22 +46,29 @@ export default function AmbientParticles({ cameraX, cameraY }: AmbientParticlesP
     let frame = 0;
 
     const draw = () => {
+      const decay = decayRef.current;
+      // Read IV directly from the shared ref — no React state, no re-renders
+      const iv = ivIntensityRef?.current ?? 0.5;
+      const speedMult = (1 - decay * 0.8) * (0.6 + iv * 0.8);
+      const alphaMult = 1 - decay * 0.6;
+
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       frame++;
 
       ctx.globalCompositeOperation = "screen";
 
       particles.forEach((p) => {
-        // Slow ambient drift
-        p.x += 0.1 / p.z;
-        p.y -= 0.05 / p.z;
+        // Slow ambient drift — slows as decay increases
+        p.x += (0.1 / p.z) * speedMult;
+        p.y -= (0.05 / p.z) * speedMult;
 
         // Wrap around
         if (p.x > canvas.width) p.x = 0;
         if (p.y < 0) p.y = canvas.height;
 
-        // Draw particle
-        ctx.fillStyle = `rgba(255, 255, 255, ${p.alpha + Math.sin(frame * 0.02 + p.x) * 0.1})`;
+        // Draw particle — dims as decay intensifies
+        const particleAlpha = (p.alpha + Math.sin(frame * 0.02 + p.x) * 0.1) * alphaMult;
+        ctx.fillStyle = `rgba(255, 255, 255, ${particleAlpha})`;
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size * p.z * 0.5, 0, Math.PI * 2);
         ctx.fill();
@@ -88,9 +100,22 @@ export default function AmbientParticles({ cameraX, cameraY }: AmbientParticlesP
       
       {/* Cinematic subtle grid and vignettes */}
       <div className="absolute inset-0 bg-grid opacity-20 mix-blend-overlay" />
+      
+      {/* Default vignette */}
       <div 
         className="absolute inset-0 pointer-events-none" 
         style={{ background: "radial-gradient(circle at 50% 50%, transparent 20%, rgba(5,8,16,0.8) 100%)" }}
+      />
+      
+      {/* Active Color Environmental Glow */}
+      <motion.div 
+        className="absolute inset-0 pointer-events-none transition-colors duration-1000 mix-blend-screen"
+        initial={false}
+        animate={{ 
+          background: activeColor 
+            ? `radial-gradient(circle at 50% 50%, ${activeColor}15 0%, transparent 80%)` 
+            : 'radial-gradient(circle at 50% 50%, transparent 0%, transparent 100%)'
+        }}
       />
     </motion.div>
   );
