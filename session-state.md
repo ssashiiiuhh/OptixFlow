@@ -69,10 +69,12 @@ Motion in OptixFlow must be intentional, physically grounded, and hierarchical.
 ## 6. Current Systems
 
 Currently implemented modules:
-- **Strategy Lab:** Core payoff graph engine with dynamic options leg configuration.
-- **Analytics:** Volatility Intelligence Panel and animated Greeks exposure gauges.
-- **Portfolio:** Strategy holdings mapping and aggregate Greek calculations.
-- **Constellation Universe:** The signature spatial playbook. Features an ambient particle engine, SVG relationship illumination paths, frosted-glass strategy preview panels, and a cinematic parallax camera.
+- **Landing Page:** Interactive public page (`/`) with a custom particle canvas, HTML-rendered options payoff graph visualizers, and institutional feature matrices.
+- **Trade Intelligence Cockpit:** High-level cockpit (`/intelligence`) with spring-damped segment selectors, an analytical structural fit scoring engine ranking 8 strategies, and a Scenario Reality Simulator with play/pause timeline steps (exactly 1 DTE per tick) and morphing Recharts payoff curves.
+- **Strategy Lab Sandbox:** Interactive option leg simulator (re-routed to `/strategy`) with dynamic Greek exposure distributions, scorecards, and ticker selection.
+- **Analytics Lab:** Volatility diagnostics panel, 3D implied volatility skew surfaces, and suitability geometries table.
+- **Portfolio Intelligence:** Capital allocation metrics, positions table, aggregate Greek calculation, and global volatility/price shock simulator.
+- **Constellation Universe:** The signature spatial playbook node network (`/playbook`) with ambient canvas physics, glowing connection path vectors, and preview cards.
 
 ## 7. Active Problems
 
@@ -90,12 +92,11 @@ Ambitious features to build out the OptixFlow ecosystem:
 
 ## 9. Session Logs
 
-### Session: May 22, 2026 - Constellation Universe Architecture
-- **Achievements:** Converted the Playbook route into a full-bleed interactive Strategy Constellation. Built the ambient background canvas, SVG relationship mapper, and glassmorphism preview cards.
-- **Problems Solved:** Excised a severe hover jitter loop caused by aggressive focal tracking physics and container-boundary `mouseLeave` events. Implemented sine-wave interpolation for flawless edge falloff.
-- **Key Insights:** Interactive DOM elements *must not* physically shift out from under the cursor based on their own hover state. Parallax should be pushed to background layers or limited to tiny drift maximums to maintain stable hitboxes.
-- **Architectural Lessons:** Framer Motion spring physics are incredibly powerful for cinematic UIs, but require heavy damping and careful normalization to feel premium rather than erratic.
-- **Next Priorities:** Begin backend integration (Supabase), implement live options data feeds, and refine user setting modules.
+### Session: May 23, 2026 - Trade Intelligence Engine & Vercel Production Hardening
+- **Achievements:** Developed the Trade Intelligence Cockpit (`/intelligence`) featuring custom sliders, morphing Recharts payoff curves with standard deviation overlays, a filterable monospace telemetry console, and a suitability scoring grid.
+- **Production Hardening:** Relocated Strategy Lab to `/strategy` and converted route pages into Server Components. Added SEO metadata, favicon configurations, global loading skeletons (`loading.tsx`), and error boundaries (`error.tsx`).
+- **Deployments:** Configured credentials and successfully deployed OptixFlow to production on Vercel at `https://optixflow-silk.vercel.app`. Committed and synchronized the codebase to GitHub at `ssashiiiuhh/OptixFlow`.
+- **Lessons:** Separating route-level wrappers from client interaction elements optimizes pre-rendering and permits static Next.js metadata compilation. Checking client mounting state inside hooks completely eliminates SSR hydration warnings.
 
 ## 10. AI Collaboration Notes
 
