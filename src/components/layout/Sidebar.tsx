@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
 // ── Nav Item definitions ─────────────────────
 
 const NAV_ITEMS = [
-  { icon: TrendingUp, label: "Strategy Lab", href: "/" },
+  { icon: TrendingUp, label: "Strategy Lab", href: "/strategy" },
   { icon: BarChart2,  label: "Analytics",    href: "/analytics" },
   { icon: Cpu,        label: "Trade Intel",  href: "/intelligence" },
   { icon: Layers,     label: "Portfolio",    href: "/portfolio" },

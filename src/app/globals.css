@@ -214,3 +214,40 @@ body {
 .animate-pulse-glow {
   animation: pulse-glow 2s ease infinite;
 }
+
+/* Custom Cockpit HUD & Loading Animations */
+@keyframes spin-reverse {
+  from { transform: rotate(360deg); }
+  to   { transform: rotate(0deg); }
+}
+
+@keyframes loading-bar {
+  0%   { transform: translateX(-150%); }
+  50%  { transform: translateX(300%); }
+  100% { transform: translateX(-150%); }
+}
+
+.animate-spin-slow {
+  animation: spin 45s linear infinite;
+}
+
+.animate-spin-reverse-slow {
+  animation: spin-reverse 40s linear infinite;
+}
+
+.animate-loading-bar {
+  animation: loading-bar 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.font-glow-cyan {
+  text-shadow: 0 0 8px rgba(0, 212, 255, 0.6);
+}
+.font-glow-emerald {
+  text-shadow: 0 0 8px rgba(0, 229, 160, 0.6);
+}
+.font-glow-rose {
+  text-shadow: 0 0 8px rgba(255, 77, 106, 0.6);
+}
+.font-glow-purple {
+  text-shadow: 0 0 8px rgba(168, 85, 247, 0.6);
+}

@@ -13,10 +13,28 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "OptixFlow — Options Strategy Visualizer",
-  description:
-    "A premium options strategy visualizer and educational finance platform. Interactive payoff graphs, real-time P&L modeling, and a sleek quant-terminal aesthetic.",
-  keywords: ["options trading", "finance", "payoff diagram", "quant", "derivatives"],
+  title: {
+    default: "OptixFlow",
+    template: "%s | OptixFlow"
+  },
+  description: "Probabilistic Market Intelligence & Derivatives Cognition Platform",
+  keywords: ["options trading", "finance", "payoff diagram", "quant", "derivatives", "volatility skew", "greek exposure"],
+  icons: {
+    icon: "/favicon.ico",
+  },
+  openGraph: {
+    title: "OptixFlow",
+    description: "Probabilistic Market Intelligence & Derivatives Cognition Platform",
+    url: "https://optixflow.vercel.app",
+    siteName: "OptixFlow",
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "OptixFlow",
+    description: "Probabilistic Market Intelligence & Derivatives Cognition Platform",
+  }
 };
 
 export default function RootLayout({

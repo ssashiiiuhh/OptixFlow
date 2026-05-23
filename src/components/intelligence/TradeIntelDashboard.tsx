@@ -88,6 +88,11 @@ export default function TradeIntelDashboard() {
   const [dte, setDte] = useState<number>(30);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [activeLogTab, setActiveLogTab] = useState<"ALL" | "ALIGN" | "WARN">("ALL");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Selected strategy state (defaults to top ranked)
   const [selectedStrategyId, setSelectedStrategyId] = useState<string | null>(null);
@@ -317,7 +322,7 @@ export default function TradeIntelDashboard() {
 
   // Format telemetry console logs
   const logsToDisplay = useMemo(() => {
-    if (!selectedStrategy) return [];
+    if (!mounted || !selectedStrategy) return [];
     
     // Base logs from engine
     const rawLogs = selectedStrategy.telemetryLogs || [];
