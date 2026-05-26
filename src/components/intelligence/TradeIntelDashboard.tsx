@@ -392,7 +392,7 @@ export default function TradeIntelDashboard() {
       </div>
 
       {/* Main Viewport Grid */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5 p-5 min-h-0 relative z-10 overflow-y-auto lg:overflow-hidden">
+      <div className="flex-1 h-0 grid grid-cols-1 lg:grid-cols-12 gap-5 p-5 min-h-0 relative z-10 overflow-y-auto lg:overflow-hidden">
         
         {/* Left Column: Thesis Constructor Cockpit (col-span-4 / 3) */}
         <div className="lg:col-span-4 xl:col-span-3 flex flex-col gap-4 h-full min-h-0 overflow-y-auto pr-0 lg:pr-1">
@@ -438,7 +438,7 @@ export default function TradeIntelDashboard() {
         </div>
 
         {/* Center Column: Scenario Reality Simulator (col-span-5 / 6) */}
-        <div className="lg:col-span-5 xl:col-span-6 flex flex-col gap-4 min-h-[500px] lg:min-h-0">
+        <div className="lg:col-span-5 xl:col-span-6 flex flex-col gap-4 h-full min-h-0">
           
           {/* Payoff Graph Viewport */}
           <div className="flex-1 bg-[#05070c]/85 border border-white/10 rounded-2xl p-5 shadow-xl flex flex-col min-h-0 relative overflow-hidden">
