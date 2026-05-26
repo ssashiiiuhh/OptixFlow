@@ -395,7 +395,7 @@ export default function TradeIntelDashboard() {
       <div className="flex-1 h-0 grid grid-cols-1 lg:grid-cols-12 gap-5 p-5 min-h-0 relative z-10 overflow-y-auto lg:overflow-hidden">
         
         {/* Left Column: Thesis Constructor Cockpit (col-span-4 / 3) */}
-        <div className="lg:col-span-4 xl:col-span-3 flex flex-col gap-4 h-full min-h-0 overflow-y-auto pr-0 lg:pr-1">
+        <div className="lg:col-span-4 xl:col-span-3 flex flex-col gap-4 lg:max-h-[calc(100vh-150px)] overflow-y-auto pr-0 lg:pr-1 shrink-0">
           <ThesisConstructor onChange={setThesis} />
 
           {/* Active Regime HUD */}
@@ -438,7 +438,7 @@ export default function TradeIntelDashboard() {
         </div>
 
         {/* Center Column: Scenario Reality Simulator (col-span-5 / 6) */}
-        <div className="lg:col-span-5 xl:col-span-6 flex flex-col gap-4 h-full min-h-0">
+        <div className="lg:col-span-5 xl:col-span-6 flex flex-col gap-4 lg:max-h-[calc(100vh-150px)] min-h-0">
           
           {/* Payoff Graph Viewport */}
           <div className="flex-1 bg-[#05070c]/85 border border-white/10 rounded-2xl p-5 shadow-xl flex flex-col min-h-0 relative overflow-hidden">
@@ -805,7 +805,7 @@ export default function TradeIntelDashboard() {
         </div>
 
         {/* Right Column: Structural Fit Rankings (col-span-3) */}
-        <div className="lg:col-span-3 flex flex-col gap-4 h-full min-h-0 overflow-hidden min-w-0 pr-0 lg:pr-1">
+        <div className="lg:col-span-3 flex flex-col gap-4 lg:max-h-[calc(100vh-150px)] overflow-hidden min-w-0 pr-0 lg:pr-1 shrink-0">
           
           {/* Header */}
           <div className="font-mono flex flex-col gap-0.5 shrink-0">
