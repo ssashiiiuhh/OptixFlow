@@ -829,7 +829,7 @@ export default function TradeIntelDashboard() {
                     layout
                     key={strat.id}
                     onClick={() => setSelectedStrategyId(strat.id)}
-                    className="group rounded-2xl p-4.5 border border-cyan-500/40 bg-[#061826]/40 cursor-pointer relative overflow-hidden transition-all shadow-xl"
+                    className="group rounded-2xl p-4.5 border border-cyan-500/40 bg-[#061826]/40 cursor-pointer relative overflow-hidden transition-all shadow-xl shrink-0"
                     style={{
                       boxShadow: "0 0 16px rgba(6, 182, 212, 0.15), inset 0 0 10px rgba(6, 182, 212, 0.05)"
                     }}
@@ -920,7 +920,7 @@ export default function TradeIntelDashboard() {
                     layout
                     key={strat.id}
                     onClick={() => setSelectedStrategyId(strat.id)}
-                    className="p-3 rounded-xl border border-white/5 bg-[#05070c]/70 hover:border-white/10 text-white/60 hover:text-white font-mono text-[10px] cursor-pointer transition-all flex items-center justify-between"
+                    className="p-3 rounded-xl border border-white/5 bg-[#05070c]/70 hover:border-white/10 text-white/60 hover:text-white font-mono text-[10px] cursor-pointer transition-all flex items-center justify-between shrink-0"
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       <span className="text-[8.5px] text-white/20 font-bold">#{idx + 1}</span>
