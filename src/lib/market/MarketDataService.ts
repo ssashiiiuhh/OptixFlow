@@ -5,6 +5,18 @@
 // ============================================================================
 
 import { bsmPrice, bsmGreeks, calculateStrikeIv, generateStressGrid } from "../quant";
+import {
+  PolygonDataProvider,
+  TradierDataProvider,
+  FinnhubDataProvider,
+  AlphaVantageDataProvider,
+  swrCache,
+  buildVolatilitySurface,
+  classifyLiveRegime,
+  fetchLiveMacroCalendar,
+  LiveTickerQuote,
+  LiveOptionChain,
+} from "../data";
 
 // ── TYPES & INTERFACES ──────────────────────────────────────────────────────
 
@@ -13,6 +25,8 @@ export type MarketMode = "simulated" | "live";
 export interface DataConnectionKeys {
   polygonKey?: string;
   tradierToken?: string;
+  finnhubKey?: string;
+  alphavantageKey?: string;
   mode: MarketMode;
 }
 
@@ -110,6 +124,7 @@ class MarketDataService {
   private listeners: Set<MarketListener> = new Set();
   private tickIntervalId: NodeJS.Timeout | null = null;
   private connectionKeys: DataConnectionKeys = { mode: "simulated" };
+  private liveChains = new Map<string, OptionsChainRow[]>();
 
   constructor() {
     this.initializeAssets();
@@ -292,22 +307,121 @@ class MarketDataService {
     this.notifyListeners();
   }
 
-  // Placeholder for real API requests (Polygon / Tradier)
+  // Ingests real market data from live providers (Polygon, Tradier, Finnhub, Alpha Vantage)
   private async fetchLivePrices() {
-    // In live mode, we make async fetches. If rate limited, we fallback gracefully.
     try {
-      const key = this.connectionKeys.polygonKey;
-      if (!key) {
-        this.simulatePrices(); // fallback
+      const keys = this.connectionKeys;
+      let provider: any = null;
+      if (keys.tradierToken) {
+        provider = new TradierDataProvider(keys.tradierToken);
+      } else if (keys.polygonKey) {
+        provider = new PolygonDataProvider(keys.polygonKey);
+      } else if (keys.finnhubKey) {
+        provider = new FinnhubDataProvider(keys.finnhubKey);
+      }
+
+      if (!provider) {
+        this.simulatePrices();
         return;
       }
 
-      // Fetch prices for NVDA, AAPL, SPY, TSLA, IWM
-      // Note: In real-world deployment, this would batch fetch or subscribe to WebSockets.
-      // We will perform a simulated network delay and tick simulated prices,
-      // simulating a live connector for safety if the user's key is rate-limited or invalid.
-      this.simulatePrices();
+      const tickers = Object.keys(this.assets);
+      const pollInterval = keys.polygonKey || keys.tradierToken ? 15000 : 30000;
+
+      await Promise.all(
+        tickers.map(async (ticker) => {
+          try {
+            // Fetch live quote using SWR cache
+            const quoteKey = `quote:${ticker}`;
+            const quote = await swrCache.get<LiveTickerQuote>(quoteKey, () => provider.fetchQuote(ticker), pollInterval);
+
+            // Fetch an approximate 30-day option chain in the background to build the IV surface and regime class
+            const exp = new Date();
+            exp.setDate(exp.getDate() + 30);
+            const expirationStr = exp.toISOString().split("T")[0];
+            const chainKey = `chain:${ticker}:${expirationStr}`;
+            
+            const liveChain = await swrCache.get<LiveOptionChain>(chainKey, () => provider.fetchOptionChain(ticker, expirationStr), pollInterval);
+            
+            // Construct the live surface
+            const surface = buildVolatilitySurface(liveChain);
+            
+            // Classify regime dynamically from live IV indicators
+            const currentHv = this.assets[ticker]?.hv30 ? this.assets[ticker].hv30 / 100 : 0.15;
+            const regime = classifyLiveRegime(surface, quote, currentHv);
+
+            // Update local memory asset state with premium live metrics
+            const asset = this.assets[ticker];
+            asset.price = quote.price;
+            asset.change = quote.change;
+            asset.changePct = quote.changePercent;
+            asset.iv30 = Math.round(surface.baseIv * 1000) / 10;
+            asset.ivRank = surface.ivRank;
+            asset.regime = regime as VolatilityRegime;
+
+            // Extract skew dynamics if term skew points are populated
+            if (surface.skewPoints.length > 2) {
+              const centerIndex = Math.floor(surface.skewPoints.length / 2);
+              const atmPoint = surface.skewPoints[centerIndex];
+              const otmPutPoint = surface.skewPoints[0];
+              const otmCallPoint = surface.skewPoints[surface.skewPoints.length - 1];
+
+              // Skew steepness is spread between OTM puts and ATM calls/puts
+              asset.skewSteepness = Math.round((otmPutPoint.iv - atmPoint.iv) * 100) / 100;
+              // Skew tilt captures the asymmetry of puts vs calls
+              asset.skewTilt = Math.round((otmPutPoint.iv - otmCallPoint.iv) * 100) / 100;
+            }
+          } catch (err) {
+            console.warn(`MarketDataService: Live fetch failed for ${ticker}. Falling back to simulated pricing walk.`, err);
+            // Standalone random-walk fallback for the failing symbol
+            const asset = this.assets[ticker];
+            const walk = (Math.random() - 0.5) * 0.0018;
+            const prevPrice = asset.price;
+            const newPrice = Math.max(1.0, prevPrice * (1 + walk));
+            const priceDiff = newPrice - prevPrice;
+
+            asset.price = Math.round(newPrice * 100) / 100;
+            asset.change = Math.round((asset.change + priceDiff) * 100) / 100;
+            asset.changePct = Math.round((asset.change / (asset.price - asset.change)) * 10000) / 100;
+          }
+        })
+      );
+
+      // Async fetch calendar events if Finnhub / Alpha Vantage keys are active
+      if (keys.finnhubKey || (keys as any).alphavantageKey) {
+        try {
+          const events = await fetchLiveMacroCalendar({
+            finnhubKey: keys.finnhubKey,
+            alphavantageKey: (keys as any).alphavantageKey,
+          });
+          if (events.length > 0) {
+            events.forEach((evt) => {
+              const symbol = evt.id.split("-")[1];
+              if (symbol && this.assets[symbol]) {
+                const currentEvts = this.assets[symbol].events || [];
+                if (!currentEvts.some((e) => e.id === evt.id)) {
+                  this.assets[symbol].events = [
+                    {
+                      id: evt.id,
+                      title: evt.title,
+                      date: evt.date,
+                      impact: evt.impact,
+                      description: evt.description,
+                    },
+                    ...currentEvts,
+                  ];
+                }
+              }
+            });
+          }
+        } catch (e) {
+          console.warn("MarketDataService: Failed to fetch calendar updates.", e);
+        }
+      }
+
+      this.notifyListeners();
     } catch (err) {
+      console.warn("MarketDataService: fetchLivePrices general error, using simulated walk.", err);
       this.simulatePrices();
     }
   }
@@ -389,7 +503,144 @@ class MarketDataService {
   /**
    * Generates Option Chain matrix for a given expiry.
    */
+  // Dynamic Option Chain builder that routes between simulated walks and live SWR feeds
   public generateOptionChain(ticker: string, dte: number): OptionsChainRow[] {
+    const keys = this.connectionKeys;
+    if (keys.mode === "live" && (keys.polygonKey || keys.tradierToken || keys.finnhubKey)) {
+      const key = `${ticker}:${dte}`;
+      if (this.liveChains.has(key)) {
+        return this.liveChains.get(key)!;
+      }
+      
+      // Async schedule live option chain resolution in background
+      this.loadLiveOptionChain(ticker, dte).catch((e) =>
+        console.warn(`MarketDataService: Background option chain load failed for ${ticker} ${dte} DTE`, e)
+      );
+
+      // Return simulated chain as immediate placeholder
+      return this.generateSimulatedOptionChain(ticker, dte);
+    }
+
+    return this.generateSimulatedOptionChain(ticker, dte);
+  }
+
+  // Resolves the asynchronous live option chain from SWR cache
+  private async loadLiveOptionChain(ticker: string, dte: number): Promise<void> {
+    const keys = this.connectionKeys;
+    let provider: any = null;
+    if (keys.tradierToken) {
+      provider = new TradierDataProvider(keys.tradierToken);
+    } else if (keys.polygonKey) {
+      provider = new PolygonDataProvider(keys.polygonKey);
+    } else if (keys.finnhubKey) {
+      provider = new FinnhubDataProvider(keys.finnhubKey);
+    }
+
+    if (!provider) return;
+
+    // Estimate expiration date matching the DTE
+    const exp = new Date();
+    exp.setDate(exp.getDate() + dte);
+    const expirationStr = exp.toISOString().split("T")[0];
+
+    try {
+      const chainKey = `chain:${ticker}:${expirationStr}`;
+      const pollInterval = keys.polygonKey || keys.tradierToken ? 15000 : 30000;
+      const liveChain = await swrCache.get<LiveOptionChain>(chainKey, () => provider.fetchOptionChain(ticker, expirationStr), pollInterval);
+
+      const spot = liveChain.underlierPrice;
+      const asset = this.getAsset(ticker);
+      const t = dte / 365;
+      const annualIv = (asset.iv30 || 25.0) / 100;
+      const oneStdDev = spot * annualIv * Math.sqrt(t);
+      const twoStdDev = 2 * oneStdDev;
+
+      // Group calls and puts by strike
+      const strikeMap = new Map<number, { call?: any; put?: any }>();
+      liveChain.contracts.forEach((c) => {
+        if (!strikeMap.has(c.strike)) {
+          strikeMap.set(c.strike, {});
+        }
+        const entry = strikeMap.get(c.strike)!;
+        if (c.type === "call") entry.call = c;
+        else entry.put = c;
+      });
+
+      const mappedRows: OptionsChainRow[] = Array.from(strikeMap.entries()).map(([strike, entry]) => {
+        const c = entry.call;
+        const p = entry.put;
+
+        const cPrice = c?.last || (c ? (c.bid + c.ask) / 2 : 0.01);
+        const pPrice = p?.last || (p ? (p.bid + p.ask) / 2 : 0.01);
+
+        const cGreeks = {
+          delta: c?.delta ?? 0.5,
+          gamma: c?.gamma ?? 0.01,
+          theta: c?.theta ?? -0.05,
+          vega: c?.vega ?? 0.15,
+        };
+
+        const pGreeks = {
+          delta: p?.delta ?? -0.5,
+          gamma: p?.gamma ?? 0.01,
+          theta: p?.theta ?? -0.05,
+          vega: p?.vega ?? 0.15,
+        };
+
+        // Mechanical indicators
+        const gammaSpeed = Math.min(1.0, cGreeks.gamma * (spot * 0.15) * Math.sqrt(45 / dte));
+        const vegaHalo = Math.min(1.0, cGreeks.vega * 0.6 * Math.sqrt(dte / 45));
+        const thetaCliff = dte <= 10 && Math.abs(strike - spot) / spot < 0.035;
+        const probBand68 = strike >= spot - oneStdDev && strike <= spot + oneStdDev;
+        const probBand95 = strike >= spot - twoStdDev && strike <= spot + twoStdDev;
+
+        return {
+          strike,
+          ivPercent: Math.round((c?.iv || p?.iv || 0.20) * 1000) / 10,
+          call: {
+            price: Math.max(0.01, Math.round(cPrice * 100) / 100),
+            delta: Math.round(cGreeks.delta * 100) / 100,
+            gamma: Math.round(cGreeks.gamma * 1000) / 1000,
+            theta: Math.round(cGreeks.theta * 100) / 100,
+            vega: Math.round(cGreeks.vega * 100) / 100,
+            iv: Math.round((c?.iv || 0.20) * 1000) / 10,
+            vol: c?.volume || 0,
+            oi: c?.openInterest || 0,
+            bid: c?.bid || Math.max(0.01, Math.round(cPrice * 0.97 * 100) / 100),
+            ask: c?.ask || Math.max(0.02, Math.round(cPrice * 1.03 * 100) / 100),
+          },
+          put: {
+            price: Math.max(0.01, Math.round(pPrice * 100) / 100),
+            delta: Math.round(pGreeks.delta * 100) / 100,
+            gamma: Math.round(pGreeks.gamma * 1000) / 1000,
+            theta: Math.round(pGreeks.theta * 100) / 100,
+            vega: Math.round(pGreeks.vega * 100) / 100,
+            iv: Math.round((p?.iv || 0.20) * 1000) / 10,
+            vol: p?.volume || 0,
+            oi: p?.openInterest || 0,
+            bid: p?.bid || Math.max(0.01, Math.round(pPrice * 0.97 * 100) / 100),
+            ask: p?.ask || Math.max(0.02, Math.round(pPrice * 1.03 * 100) / 100),
+          },
+          gammaSpeed: Math.max(0, Math.min(1.0, gammaSpeed)),
+          vegaHalo: Math.max(0, Math.min(1.0, vegaHalo)),
+          thetaCliff,
+          probBand68,
+          probBand95,
+        };
+      });
+
+      mappedRows.sort((a, b) => a.strike - b.strike);
+      
+      const key = `${ticker}:${dte}`;
+      this.liveChains.set(key, mappedRows);
+      this.notifyListeners();
+    } catch (e) {
+      console.warn("MarketDataService: Live option chain mapping error.", e);
+    }
+  }
+
+  // Fallback simulated option chain logic
+  private generateSimulatedOptionChain(ticker: string, dte: number): OptionsChainRow[] {
     const asset = this.getAsset(ticker);
     const spot = asset.price;
     const t = dte / 365;
