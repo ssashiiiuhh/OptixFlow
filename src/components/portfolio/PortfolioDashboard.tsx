@@ -16,6 +16,7 @@ import MonteCarloRisk from "@/components/portfolio/MonteCarloRisk";
 import PortfolioConsole from "@/components/portfolio/PortfolioConsole";
 import VolatilitySurface3D from "@/components/portfolio/VolatilitySurface3D";
 import DeltaHedger from "@/components/portfolio/DeltaHedger";
+import TradierBridge from "@/components/portfolio/TradierBridge";
 import MarketPlayback from "@/components/portfolio/MarketPlayback";
 import { PortfolioProvider, usePortfolio } from "./PortfolioContext";
 import { cn } from "@/lib/utils";
@@ -164,6 +165,7 @@ function PortfolioDashboardContent() {
             <PortfolioGreeks />
             <MonteCarloRisk />
             <DeltaHedger />
+            <TradierBridge />
           </div>
 
           {/* Right column */}

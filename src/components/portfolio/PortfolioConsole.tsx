@@ -50,18 +50,30 @@ export default function PortfolioConsole() {
     });
   }, [narration]);
 
-  // Add AI narration lines
+  // Add AI narration lines (handling streaming)
   useEffect(() => {
     if (!aiNarrationLines?.length) return;
-    const newItems: LogLine[] = aiNarrationLines
-      .filter((text) => !seenRef.current.has(`ai-${text}`))
-      .map((text) => {
-        seenRef.current.add(`ai-${text}`);
-        return { id: `ai-${Date.now()}-${Math.random()}`, text, type: "ai" as const };
-      });
-    if (!newItems.length) return;
     setLines((prev) => {
-      const next = [...prev, ...newItems];
+      const next = [...prev];
+      aiNarrationLines.forEach((text) => {
+        const isStreaming = text.startsWith("__STREAMING__");
+        const cleanText = isStreaming ? text.slice(13) : text;
+        const cacheKey = `ai-${text}`;
+        
+        // For streaming lines, replace the last streaming entry
+        if (isStreaming) {
+          const lastIdx = next.findLastIndex((l) => l.type === "ai" && l.text.startsWith("__STREAMING__"));
+          if (lastIdx >= 0) {
+            next[lastIdx] = { ...next[lastIdx], text };
+            return;
+          }
+        }
+        
+        if (!seenRef.current.has(cacheKey)) {
+          seenRef.current.add(cacheKey);
+          next.push({ id: `ai-${Date.now()}-${Math.random()}`, text, type: "ai" as const });
+        }
+      });
       return next.length > 100 ? next.slice(next.length - 100) : next;
     });
   }, [aiNarrationLines]);
@@ -204,7 +216,14 @@ export default function PortfolioConsole() {
                 )}
               >
                 <span className="opacity-60">{LINE_PREFIX[line.type]}</span>
-                {line.text}
+                {line.text.startsWith("__STREAMING__") ? (
+                  <>
+                    <span>{line.text.slice(13)}</span>
+                    <span className="inline-block w-1.5 h-3 bg-[#a855f7]/70 animate-pulse ml-0.5 align-middle rounded-sm" />
+                  </>
+                ) : (
+                  line.text
+                )}
               </motion.div>
             ))
           )}

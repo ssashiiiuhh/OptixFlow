@@ -511,16 +511,35 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      const data = await res.json();
-      if (data.narration) {
+      if (!res.body) throw new Error("No stream body");
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      // Seed a streaming placeholder line
+      setAiNarrationLines((prev) => [...prev, "__STREAMING__"].slice(-40));
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        // Update the last __STREAMING__ line with accumulated text
         setAiNarrationLines((prev) => {
-          const lines = data.narration
-            .split(/\n+/)
-            .map((l: string) => l.trim())
-            .filter(Boolean);
-          return [...prev, ...lines].slice(-40); // cap at 40 AI lines
+          const next = [...prev];
+          const lastIdx = next.length - 1;
+          if (lastIdx >= 0 && next[lastIdx].startsWith("__STREAMING__")) {
+            next[lastIdx] = `__STREAMING__${buffer}`;
+          }
+          return next;
         });
       }
+      // Finalize — strip the marker from the last line
+      setAiNarrationLines((prev) => {
+        const next = [...prev];
+        const lastIdx = next.length - 1;
+        if (lastIdx >= 0 && next[lastIdx].startsWith("__STREAMING__")) {
+          next[lastIdx] = buffer.trim();
+        }
+        return next.slice(-40);
+      });
     } catch {
       setAiNarrationLines((prev) => [...prev, "[AI] Connection error — narration engine offline."]);
     } finally {

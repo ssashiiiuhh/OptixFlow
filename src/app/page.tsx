@@ -24,6 +24,12 @@ import {
   Terminal
 } from "lucide-react";
 
+import { PortfolioProvider } from "@/components/portfolio/PortfolioContext";
+import VolatilitySurface3D from "@/components/portfolio/VolatilitySurface3D";
+import DeltaHedger from "@/components/portfolio/DeltaHedger";
+import PortfolioConsole from "@/components/portfolio/PortfolioConsole";
+import MarketPlayback from "@/components/portfolio/MarketPlayback";
+
 interface Particle {
   x: number;
   y: number;
@@ -368,113 +374,37 @@ export default function LandingPage() {
             )}
           </div>
 
-          {/* Mockup Right Side (Simulated UI Graphics using pure HTML/CSS) */}
-          <div className="flex-1 w-full bg-[#020408] border border-white/5 rounded-xl p-4 font-mono text-[9px] text-white/50 space-y-3 relative overflow-hidden self-stretch min-h-[250px] flex flex-col justify-between">
-            <div className="flex justify-between items-center border-b border-white/5 pb-2 text-[8px] uppercase text-white/35">
-              <span>Telemetry Monitor</span>
-              <span className="text-cyan-400 font-bold">STATUS: RUNNING</span>
-            </div>
-
-            {/* Custom Interactive HTML Graphic rendering based on active tab */}
-            {activeTab === "intel" && (
-              <div className="space-y-3 flex-1 flex flex-col justify-center">
-                {/* Visual #1 Strategy ranking list */}
-                <div className="p-2 border border-cyan-500/25 bg-cyan-500/5 rounded-lg flex items-center justify-between">
-                  <div>
-                    <span className="text-[7.5px] border border-cyan-500/30 px-1 rounded text-cyan-400 uppercase font-bold">#1 Ranked</span>
-                    <span className="text-white font-bold ml-2 text-xs">Iron Condor</span>
-                  </div>
-                  <span className="text-emerald-400 font-bold text-xs">Score: 92</span>
-                </div>
-
-                {/* mini payoff graphic */}
-                <div className="h-20 w-full relative flex items-center justify-center border border-white/5 bg-white/2 rounded-lg">
-                  {/* Path rendering */}
-                  <svg className="w-[80%] h-[70%]" viewBox="0 0 100 40">
-                    <line x1="0" y1="35" x2="30" y2="35" stroke="rgba(255, 77, 106, 0.4)" strokeWidth="1.5" />
-                    <line x1="30" y1="35" x2="45" y2="10" stroke="#00e5a0" strokeWidth="1.5" />
-                    <line x1="45" y1="10" x2="55" y2="10" stroke="#00e5a0" strokeWidth="1.5" />
-                    <line x1="55" y1="10" x2="70" y2="35" stroke="#00e5a0" strokeWidth="1.5" />
-                    <line x1="70" y1="35" x2="100" y2="35" stroke="rgba(255, 77, 106, 0.4)" strokeWidth="1.5" />
-                    <line x1="0" y1="28" x2="100" y2="28" stroke="rgba(255,255,255,0.1)" strokeWidth="0.5" strokeDasharray="2 2" />
-                    <circle cx="50" cy="10" r="1.5" fill="#22d3ee" className="animate-ping" />
-                  </svg>
-                </div>
-
-                <div className="text-[7.5px] text-white/35 flex justify-between uppercase">
-                  <span>Delta: 0.02</span>
-                  <span>Gamma: -0.025</span>
-                  <span>Theta: +4.80</span>
-                </div>
-              </div>
-            )}
-
-            {activeTab === "lab" && (
-              <div className="space-y-2 flex-1 flex flex-col justify-center">
-                {/* Visual simulated sliders */}
-                <div className="space-y-1">
-                  <div className="flex justify-between text-[8px] text-white/40">
-                    <span>Strike Calibration</span>
-                    <span className="text-white font-bold">100 (ATM)</span>
-                  </div>
-                  <div className="h-1 bg-white/10 rounded-full relative">
-                    <div className="absolute left-[50%] -translate-x-1/2 -top-1 w-3 h-3 rounded-full bg-cyan-400 border border-white" />
-                  </div>
-                </div>
-
-                <div className="space-y-1 pt-2">
-                  <div className="flex justify-between text-[8px] text-white/40">
-                    <span>Days to Expiry (DTE)</span>
-                    <span className="text-emerald-400 font-bold">30 Days</span>
-                  </div>
-                  <div className="h-1 bg-white/10 rounded-full relative">
-                    <div className="absolute left-[66%] -translate-x-1/2 -top-1 w-3 h-3 rounded-full bg-emerald-400 border border-white" />
-                  </div>
-                </div>
-
-                {/* mini greeks matrix */}
-                <div className="grid grid-cols-4 gap-1 pt-2">
-                  {[
-                    { label: "Delta", val: "0.55", col: "text-white" },
-                    { label: "Gamma", val: "0.035", col: "text-white" },
-                    { label: "Theta", val: "-3.50", col: "text-rose-400" },
-                    { label: "Vega", val: "12.00", col: "text-purple-400" }
-                  ].map((g, idx) => (
-                    <div key={idx} className="bg-white/2 border border-white/5 rounded p-1 text-center">
-                      <span className="text-[6.5px] text-white/20 uppercase block">{g.label}</span>
-                      <span className={`font-bold ${g.col} text-[9px]`}>{g.val}</span>
+          {/* Live Mini Component Renders */}
+          <div className="flex-1 w-full relative overflow-hidden self-stretch min-h-[350px] flex flex-col justify-center">
+            <PortfolioProvider>
+              <div className="transform-gpu transition-all duration-500 w-full h-full">
+                {activeTab === "intel" && (
+                  <div className="animate-in fade-in zoom-in-95 duration-500 w-full h-full flex flex-col justify-center">
+                    <div className="scale-[0.85] origin-center w-[115%] -ml-[7.5%]">
+                      <PortfolioConsole />
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {activeTab === "analytics" && (
-              <div className="space-y-3 flex-1 flex flex-col justify-center">
-                {/* simulated 3D Surface grid representation */}
-                <div className="h-28 w-full border border-white/5 bg-white/2 rounded-lg flex flex-col items-center justify-center relative overflow-hidden">
-                  <div className="absolute inset-0 opacity-[0.08] flex flex-col justify-between">
-                    {Array.from({ length: 8 }).map((_, i) => (
-                      <div key={i} className="h-[1px] bg-cyan-400 transform -skew-y-12" />
-                    ))}
                   </div>
-                  <svg className="w-[90%] h-[80%] z-10" viewBox="0 0 100 40">
-                    {/* Simulated surface outline */}
-                    <path d="M 10 30 Q 30 15 50 20 T 90 10" fill="none" stroke="rgba(168, 85, 247, 0.6)" strokeWidth="1.5" />
-                    <path d="M 10 35 Q 30 20 50 25 T 90 15" fill="none" stroke="rgba(6, 182, 212, 0.4)" strokeWidth="1" />
-                    <path d="M 10 25 Q 30 10 50 15 T 90 5" fill="none" stroke="rgba(16, 185, 129, 0.3)" strokeWidth="1" />
-                  </svg>
-                  <span className="absolute bottom-1 right-2 text-[7px] text-white/30 uppercase font-mono">Volatility Smile Grid</span>
-                </div>
+                )}
+                
+                {activeTab === "lab" && (
+                  <div className="animate-in fade-in zoom-in-95 duration-500 w-full h-full flex flex-col gap-2 justify-center">
+                    <div className="scale-[0.85] origin-center w-[115%] -ml-[7.5%] flex flex-col gap-2">
+                      <DeltaHedger />
+                      <MarketPlayback />
+                    </div>
+                  </div>
+                )}
+                
+                {activeTab === "analytics" && (
+                  <div className="animate-in fade-in zoom-in-95 duration-500 w-full h-full flex flex-col justify-center">
+                    <div className="scale-[0.85] origin-center w-[115%] -ml-[7.5%]">
+                      <VolatilitySurface3D />
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-
-            <div className="flex justify-between items-center text-[7.5px] text-white/25 border-t border-white/5 pt-2">
-              <span>SYSTEM: CALIBRATED</span>
-              <span>GRID PROJECTION: OK</span>
-            </div>
+            </PortfolioProvider>
           </div>
-
         </div>
       </section>
 

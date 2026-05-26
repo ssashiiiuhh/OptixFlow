@@ -1,10 +1,9 @@
 // ============================================================================
-// OPTIXFLOW — Gemini AI Narration API Route
-// Streams institutional-quality risk commentary from Gemini 2.0 Flash.
-// POST /api/narrate — accepts Greeks + VaR context, returns streaming text.
+// OPTIXFLOW — Gemini AI Narration API Route (Streaming v2)
+// Token-by-token Server-Sent Events stream. Falls back to deterministic.
 // ============================================================================
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 
 interface NarrateRequest {
   totalDelta: number;
@@ -56,70 +55,121 @@ Current Portfolio Metrics:
 Generate a 2–4 sentence risk narration for this portfolio state. Be specific, be sharp, be institutional.`;
 }
 
+function generateSimulatedNarration(data: NarrateRequest): string {
+  const { totalDelta, totalGamma, totalTheta, totalVega, netPnl, avgIV, var99, cvar, playbackMode, scenarioName } = data;
+  const deltaDir = totalDelta > 30 ? "long-biased" : totalDelta < -30 ? "short-biased" : "delta-neutral";
+  const thetaStr = `decaying at $${Math.abs(totalTheta).toFixed(0)}/day`;
+  const vegaSignal = totalVega > 50
+    ? "long-vol positioning makes this portfolio vulnerable to IV crush"
+    : "short-vol positioning benefits from realized-vol compression";
+  const varStr = `$${Math.abs(var99).toLocaleString()}`;
+  const ivStr = `${avgIV.toFixed(1)}%`;
+  const pnlStr = netPnl >= 0 ? `+$${netPnl.toLocaleString()}` : `-$${Math.abs(netPnl).toLocaleString()}`;
+  if (playbackMode && scenarioName) {
+    return `[AI] Replaying ${scenarioName} — ${deltaDir} exposure with IV at ${ivStr}. Theta engine ${thetaStr} as historical vol regime unfolds. ${vegaSignal.charAt(0).toUpperCase() + vegaSignal.slice(1)} across this stress window. VaR 99% breach zone at ${varStr}.`;
+  }
+  const gammaNote = Math.abs(totalGamma) > 0.05
+    ? `Gamma at ${totalGamma.toFixed(4)} signals accelerating convexity risk near strike clusters.`
+    : `Gamma profile remains flat — limited second-order acceleration risk.`;
+  return `[AI] Portfolio is ${deltaDir} with net Δ ${totalDelta > 0 ? "+" : ""}${totalDelta.toFixed(1)}, ${thetaStr} at implied vol ${ivStr}. ${gammaNote} Current ${vegaSignal}. Tail risk at VaR 99%: ${varStr}, CVaR: $${Math.abs(cvar).toLocaleString()} — P&L mark: ${pnlStr}.`;
+}
+
+// ── Fake token-by-token stream of deterministic text ─────────────────────────
+function streamText(text: string): ReadableStream<Uint8Array> {
+  const encoder = new TextEncoder();
+  // Split into ~3-char chunks to simulate token streaming
+  const chunks = text.match(/.{1,4}/g) ?? [text];
+  let i = 0;
+  return new ReadableStream({
+    async pull(controller) {
+      if (i >= chunks.length) {
+        controller.close();
+        return;
+      }
+      // Small random delay per chunk (15-40ms) for typewriter feel
+      await new Promise((r) => setTimeout(r, 15 + Math.random() * 25));
+      controller.enqueue(encoder.encode(chunks[i++]));
+    },
+  });
+}
+
 export async function POST(request: NextRequest) {
   try {
     const data: NarrateRequest = await request.json();
-
     const apiKey = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 
-    // If no API key, return a high-quality simulated narration
+    // ── No API key: stream the deterministic fallback ─────────────────────
     if (!apiKey) {
-      const simulated = generateSimulatedNarration(data);
-      return NextResponse.json({ narration: simulated });
+      const text = generateSimulatedNarration(data);
+      return new Response(streamText(text), {
+        headers: {
+          "Content-Type": "text/plain; charset=utf-8",
+          "Cache-Control": "no-cache",
+          "X-Accel-Buffering": "no",
+        },
+      });
     }
 
-    // Real Gemini API call
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+    // ── Real Gemini streaming API call ─────────────────────────────────────
+    const geminiRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:streamGenerateContent?alt=sse&key=${apiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
           contents: [{ parts: [{ text: buildPrompt(data) }] }],
-          generationConfig: {
-            maxOutputTokens: 180,
-            temperature: 0.75,
-            topP: 0.9,
-          },
+          generationConfig: { maxOutputTokens: 200, temperature: 0.78, topP: 0.9 },
         }),
       }
     );
 
-    if (!response.ok) {
-      const simulated = generateSimulatedNarration(data);
-      return NextResponse.json({ narration: simulated });
+    if (!geminiRes.ok || !geminiRes.body) {
+      const fallback = generateSimulatedNarration(data);
+      return new Response(streamText(fallback), {
+        headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-cache" },
+      });
     }
 
-    const result = await response.json();
-    const text = result.candidates?.[0]?.content?.parts?.[0]?.text ?? generateSimulatedNarration(data);
-    return NextResponse.json({ narration: text });
+    // Parse SSE from Gemini and pipe text tokens to our own stream
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+    const reader = geminiRes.body.getReader();
 
+    const stream = new ReadableStream<Uint8Array>({
+      async pull(controller) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) { controller.close(); return; }
+          const chunk = decoder.decode(value, { stream: true });
+          // Each SSE line looks like: data: {"candidates":[{"content":{"parts":[{"text":"..."}]}}]}
+          const lines = chunk.split("\n");
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            const jsonStr = line.slice(6).trim();
+            if (jsonStr === "[DONE]") { controller.close(); return; }
+            try {
+              const obj = JSON.parse(jsonStr);
+              const text: string = obj?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+              if (text) controller.enqueue(encoder.encode(text));
+            } catch { /* skip malformed chunks */ }
+          }
+        }
+      },
+      cancel() { reader.cancel(); },
+    });
+
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8",
+        "Cache-Control": "no-cache",
+        "X-Accel-Buffering": "no",
+      },
+    });
   } catch {
-    return NextResponse.json({ narration: "[AI] Narration engine temporarily offline — simulated mode active." });
+    const fallback = "[AI] Narration engine temporarily offline — simulated mode active.";
+    return new Response(streamText(fallback), {
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
+    });
   }
-}
-
-// ── Deterministic fallback narration (no API key needed) ─────────────────────
-
-function generateSimulatedNarration(data: NarrateRequest): string {
-  const { totalDelta, totalGamma, totalTheta, totalVega, netPnl, avgIV, var99, cvar, playbackMode, scenarioName } = data;
-
-  const deltaDir = totalDelta > 30 ? "long-biased" : totalDelta < -30 ? "short-biased" : "delta-neutral";
-  const thetaStr = `decaying at $${Math.abs(totalTheta).toFixed(0)}/day`;
-  const vegaSignal = totalVega > 50 ? "long-vol positioning makes this portfolio vulnerable to IV crush" : "short-vol positioning benefits from realized-vol compression";
-  const varStr = `$${Math.abs(var99).toLocaleString()}`;
-  const ivStr = `${avgIV.toFixed(1)}%`;
-
-  const pnlStr = netPnl >= 0 ? `+$${netPnl.toLocaleString()}` : `-$${Math.abs(netPnl).toLocaleString()}`;
-
-  if (playbackMode && scenarioName) {
-    return `[AI] Replaying ${scenarioName} — ${deltaDir} exposure with IV at ${ivStr}. Theta engine ${thetaStr} as historical vol regime unfolds. ${vegaSignal.charAt(0).toUpperCase() + vegaSignal.slice(1)} across this stress window. VaR 99% breach zone at ${varStr}.`;
-  }
-
-  const gammaNote = Math.abs(totalGamma) > 0.05
-    ? `Gamma at ${totalGamma.toFixed(4)} signals accelerating convexity risk near strike clusters.`
-    : `Gamma profile remains flat — limited second-order acceleration risk.`;
-
-  return `[AI] Portfolio is ${deltaDir} with net Δ ${totalDelta > 0 ? "+" : ""}${totalDelta.toFixed(1)}, ${thetaStr} at implied vol ${ivStr}. ${gammaNote} Current ${vegaSignal}. Tail risk at VaR 99%: ${varStr}, CVaR: $${Math.abs(cvar).toLocaleString()} — P&L mark: ${pnlStr}.`;
 }

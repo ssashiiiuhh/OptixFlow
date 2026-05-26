@@ -18,7 +18,7 @@ const SEVERITY_CONFIG = {
 };
 
 export default function DeltaHedger() {
-  const { hedgerState, autoHedgeEnabled, setAutoHedgeEnabled, simulateHedge } = usePortfolio();
+  const { hedgerState, autoHedgeEnabled, setAutoHedgeEnabled, simulateHedge, hedgeTolerance, setHedgeTolerance } = usePortfolio();
 
   if (!hedgerState) return null;
 
@@ -140,6 +140,23 @@ export default function DeltaHedger() {
           <span className="text-[var(--ox-accent-green)]/60">Neutral Zone</span>
           <span>+{toleranceHigh}Δ</span>
         </div>
+      </div>
+
+      {/* Tolerance Slider */}
+      <div className="flex flex-col gap-2">
+        <div className="flex justify-between items-center text-[8px] font-mono text-[var(--ox-text-muted)] uppercase">
+          <span>Tolerance Control</span>
+          <span className="font-bold text-[var(--ox-accent-cyan)]">±{hedgeTolerance}Δ</span>
+        </div>
+        <input
+          type="range"
+          min="10"
+          max="500"
+          step="10"
+          value={hedgeTolerance}
+          onChange={(e) => setHedgeTolerance(Number(e.target.value))}
+          className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-[var(--ox-accent-cyan)] focus:outline-none"
+        />
       </div>
 
       {/* Metrics row */}
