@@ -286,7 +286,7 @@ export const RAW_LEGS: PositionLeg[] = [
 ];
 
 // Baseline spot prices and volatility coefficients
-const SPOT_PRICES: Record<string, number> = {
+export const SPOT_PRICES: Record<string, number> = {
   AAPL: 189.64,
   NVDA: 875.3,
   SPY: 528.42,
@@ -296,7 +296,7 @@ const SPOT_PRICES: Record<string, number> = {
   QQQ: 448.2,
 };
 
-const IVS: Record<string, number> = {
+export const IVS: Record<string, number> = {
   AAPL: 0.284,
   NVDA: 0.528,
   SPY: 0.146,

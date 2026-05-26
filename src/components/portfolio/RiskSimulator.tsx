@@ -1,9 +1,14 @@
+// ============================================================================
+// OPTIXFLOW — Dynamic Scenario Risk Simulator
+// Recalculates position P&L shock sensitivities relative to ticking spot price walks.
+// ============================================================================
+
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useMemo } from "react";
 import { BarChart, Bar, XAxis, YAxis, Cell, ResponsiveContainer, ReferenceLine, Tooltip } from "recharts";
-import { SCENARIOS, HOLDINGS, type Scenario } from "@/lib/portfolio-data";
+import { usePortfolio, type Scenario, type StrategyHolding } from "./PortfolioContext";
 import { cn } from "@/lib/utils";
 
 // ── Scenario selector button ──────────────────────────────────────────────
@@ -54,14 +59,19 @@ function ScenarioButton({
 
 // ── Per-holding impact bar chart ──────────────────────────────────────────
 
-function HoldingImpactChart({ scenario }: { scenario: Scenario }) {
-  const data = HOLDINGS.map((h) => ({
-    ticker: h.ticker,
-    impact: scenario.holdingImpacts[h.id] ?? 0,
-    color: (scenario.holdingImpacts[h.id] ?? 0) >= 0 ? "#00e5a0" : "#ff4d6a",
-  }));
+function HoldingImpactChart({ scenario, holdings }: { scenario: Scenario; holdings: StrategyHolding[] }) {
+  const data = useMemo(() => {
+    return holdings.map((h) => ({
+      ticker: h.ticker,
+      impact: scenario.holdingImpacts[h.id] ?? 0,
+      color: (scenario.holdingImpacts[h.id] ?? 0) >= 0 ? "#00e5a0" : "#ff4d6a",
+    }));
+  }, [holdings, scenario]);
 
-  const maxAbs = Math.max(...data.map((d) => Math.abs(d.impact)));
+  const maxAbs = useMemo(() => {
+    const impacts = data.map((d) => Math.abs(d.impact));
+    return impacts.length > 0 ? Math.max(...impacts, 100) : 100;
+  }, [data]);
 
   return (
     <div className="h-36">
@@ -94,7 +104,7 @@ function HoldingImpactChart({ scenario }: { scenario: Scenario }) {
             }}
           />
           <ReferenceLine y={0} stroke="rgba(255,255,255,0.1)" />
-          <Bar dataKey="impact" radius={[3, 3, 0, 0]} maxBarSize={32} isAnimationActive animationDuration={600}>
+          <Bar dataKey="impact" radius={[3, 3, 0, 0]} maxBarSize={32} isAnimationActive={false}>
             {data.map((entry, i) => (
               <Cell
                 key={i}
@@ -112,9 +122,26 @@ function HoldingImpactChart({ scenario }: { scenario: Scenario }) {
 
 // ── Scenario result readout ───────────────────────────────────────────────
 
-function ScenarioResult({ scenario, delay }: { scenario: Scenario; delay: number }) {
+function ScenarioResult({ scenario, holdings, delay }: { scenario: Scenario; holdings: StrategyHolding[]; delay: number }) {
   const isProfit = scenario.pnlImpact >= 0;
   const impactColor = isProfit ? "#00e5a0" : "#ff4d6a";
+
+  const { best, worst } = useMemo(() => {
+    const impacts = Object.entries(scenario.holdingImpacts);
+    if (impacts.length === 0) return { best: null, worst: null };
+
+    const sorted = [...impacts].sort(([, a], [, b]) => b - a);
+    const bestEntry = sorted[0];
+    const worstEntry = sorted[sorted.length - 1];
+
+    const bestHolding = holdings.find((h) => h.id === bestEntry[0]);
+    const worstHolding = holdings.find((h) => h.id === worstEntry[0]);
+
+    return {
+      best: { holding: bestHolding, value: bestEntry[1] },
+      worst: { holding: worstHolding, value: worstEntry[1] },
+    };
+  }, [scenario, holdings]);
 
   return (
     <motion.div
@@ -132,7 +159,7 @@ function ScenarioResult({ scenario, delay }: { scenario: Scenario; delay: number
         <div className="text-center">
           <p className="text-[9px] text-[var(--ox-text-muted)] uppercase tracking-wider">P&L Impact</p>
           <p className="text-base font-black font-mono mt-0.5" style={{ color: impactColor }}>
-            {isProfit ? "+" : ""}${Math.abs(scenario.pnlImpact).toLocaleString()}
+            {isProfit ? "+" : ""}${Math.round(scenario.pnlImpact).toLocaleString()}
           </p>
         </div>
         <div className="text-center">
@@ -165,38 +192,41 @@ function ScenarioResult({ scenario, delay }: { scenario: Scenario; delay: number
         <p className="text-[9px] uppercase tracking-widest text-[var(--ox-text-muted)] mb-2">
           Per-Position Impact
         </p>
-        <HoldingImpactChart scenario={scenario} />
+        <HoldingImpactChart scenario={scenario} holdings={holdings} />
       </div>
 
       {/* Largest winner/loser */}
       <div className="grid grid-cols-2 gap-2">
-        {(["best", "worst"] as const).map((side) => {
-          const impacts = Object.entries(scenario.holdingImpacts);
-          const sorted = impacts.sort(([, a], [, b]) =>
-            side === "best" ? b - a : a - b
-          );
-          const [hid, val] = sorted[0];
-          const holding = HOLDINGS.find((h) => h.id === hid);
-          const col = side === "best" ? "#00e5a0" : "#ff4d6a";
-
-          return (
-            <div
-              key={side}
-              className="rounded-lg border border-[var(--ox-border-subtle)] p-2"
-              style={{ background: `${col}08` }}
-            >
-              <p className="text-[9px] text-[var(--ox-text-muted)] uppercase tracking-wider mb-0.5">
-                {side === "best" ? "Best" : "Worst"} Position
-              </p>
-              <p className="text-[11px] font-bold font-mono" style={{ color: col }}>
-                {holding?.ticker}
-              </p>
-              <p className="text-[10px] font-mono" style={{ color: col }}>
-                {val >= 0 ? "+" : ""}${val.toLocaleString()}
-              </p>
-            </div>
-          );
-        })}
+        {best && (
+          <div
+            className="rounded-lg border border-[var(--ox-border-subtle)] p-2 bg-[var(--ox-accent-green)]/[0.03]"
+          >
+            <p className="text-[9px] text-[var(--ox-text-muted)] uppercase tracking-wider mb-0.5">
+              Best Position
+            </p>
+            <p className="text-[11px] font-bold font-mono text-[var(--ox-accent-green)]">
+              {best.holding?.ticker}
+            </p>
+            <p className="text-[10px] font-mono text-[var(--ox-accent-green)]">
+              {best.value >= 0 ? "+" : ""}${Math.round(best.value).toLocaleString()}
+            </p>
+          </div>
+        )}
+        {worst && (
+          <div
+            className="rounded-lg border border-[var(--ox-border-subtle)] p-2 bg-[var(--ox-accent-red)]/[0.03]"
+          >
+            <p className="text-[9px] text-[var(--ox-text-muted)] uppercase tracking-wider mb-0.5">
+              Worst Position
+            </p>
+            <p className="text-[11px] font-bold font-mono text-[var(--ox-accent-red)]">
+              {worst.holding?.ticker}
+            </p>
+            <p className="text-[10px] font-mono text-[var(--ox-accent-red)]">
+              {worst.value >= 0 ? "+" : ""}${Math.round(worst.value).toLocaleString()}
+            </p>
+          </div>
+        )}
       </div>
     </motion.div>
   );
@@ -205,11 +235,12 @@ function ScenarioResult({ scenario, delay }: { scenario: Scenario; delay: number
 // ── Main Panel ────────────────────────────────────────────────────────────
 
 export default function RiskSimulator() {
-  const [activeId, setActiveId] = useState<string>(SCENARIOS[0].id);
+  const { scenarios, holdings } = usePortfolio();
+  const [activeId, setActiveId] = useState<string>(scenarios[0].id);
 
   const activeScenario = useMemo(
-    () => SCENARIOS.find((s) => s.id === activeId) ?? SCENARIOS[0],
-    [activeId]
+    () => scenarios.find((s) => s.id === activeId) ?? scenarios[0],
+    [activeId, scenarios]
   );
 
   return (
@@ -223,7 +254,7 @@ export default function RiskSimulator() {
       <div className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <div className="w-1.5 h-4 rounded-full bg-[var(--ox-accent-red)]" style={{ boxShadow: "0 0 8px rgba(255,77,106,0.5)" }} />
+            <div className="w-1.5 h-4 rounded-full bg-[var(--ox-accent-red)] glow-red" />
             <h2 className="text-sm font-semibold text-[var(--ox-text-primary)]">
               Risk Simulation
             </h2>
@@ -233,7 +264,7 @@ export default function RiskSimulator() {
           </p>
         </div>
         <span
-          className="text-[9px] font-mono px-2 py-1 rounded-full border"
+          className="text-[9px] font-mono px-2 py-1 rounded-full border uppercase"
           style={{
             color: activeScenario.color,
             borderColor: `${activeScenario.color}30`,
@@ -246,7 +277,7 @@ export default function RiskSimulator() {
 
       {/* Scenario selector grid */}
       <div className="grid grid-cols-2 gap-2">
-        {SCENARIOS.map((s) => (
+        {scenarios.map((s) => (
           <ScenarioButton
             key={s.id}
             scenario={s}
@@ -261,6 +292,7 @@ export default function RiskSimulator() {
         <ScenarioResult
           key={activeScenario.id}
           scenario={activeScenario}
+          holdings={holdings}
           delay={0.05}
         />
       </AnimatePresence>

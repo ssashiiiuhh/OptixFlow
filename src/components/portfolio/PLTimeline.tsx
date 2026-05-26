@@ -1,3 +1,8 @@
+// ============================================================================
+// OPTIXFLOW — Interactive P&L Timeline Component
+// Appends live ticking walks onto the historical P&L walk.
+// ============================================================================
+
 "use client";
 
 import {
@@ -12,7 +17,8 @@ import {
   ReferenceLine,
 } from "recharts";
 import { motion } from "framer-motion";
-import { PL_TIMELINE, type PLPoint } from "@/lib/portfolio-data";
+import { usePortfolio, type PLPoint } from "./PortfolioContext";
+import { useMemo } from "react";
 
 // ── Event icons ───────────────────────────────────────────────────────────
 
@@ -32,15 +38,16 @@ const EVENT_ICONS: Record<string, string> = {
 
 // ── Custom tooltip ────────────────────────────────────────────────────────
 
-function PLTooltip({ active, payload, label }: {
+function PLTooltip({ active, payload, label, plTimeline }: {
   active?: boolean;
   payload?: Array<{ value: number; name: string }>;
   label?: string;
+  plTimeline: PLPoint[];
 }) {
   if (!active || !payload?.length) return null;
   const pnl    = payload.find((p) => p.name === "pnl");
   const cumPnl = payload.find((p) => p.name === "cumulative");
-  const point  = PL_TIMELINE.find((p) => p.date === label);
+  const point  = plTimeline.find((p) => p.date === label);
 
   return (
     <div
@@ -55,7 +62,7 @@ function PLTooltip({ active, payload, label }: {
       <p className="text-[var(--ox-text-muted)] mb-2 font-sans text-[10px]">{label}</p>
       {pnl && (
         <div className="flex justify-between gap-4">
-          <span className="text-[var(--ox-text-muted)]">Week P&L</span>
+          <span className="text-[var(--ox-text-muted)]">P&L Delta</span>
           <span style={{ color: (pnl.value ?? 0) >= 0 ? "#00e5a0" : "#ff4d6a" }}>
             {(pnl.value ?? 0) >= 0 ? "+" : ""}${pnl.value?.toLocaleString()}
           </span>
@@ -122,8 +129,8 @@ function TimelineStat({ label, value, color }: { label: string; value: string; c
 
 // ── Cinematic event marker overlay ────────────────────────────────────────
 
-function EventLegend() {
-  const events = PL_TIMELINE.filter((p) => p.event);
+function EventLegend({ plTimeline }: { plTimeline: PLPoint[] }) {
+  const events = useMemo(() => plTimeline.filter((p) => p.event), [plTimeline]);
   return (
     <div className="flex flex-wrap gap-x-4 gap-y-1">
       {events.map((e) => (
@@ -147,9 +154,14 @@ function EventLegend() {
 // ── Main Panel ────────────────────────────────────────────────────────────
 
 export default function PLTimeline() {
-  const cumulative = PL_TIMELINE[PL_TIMELINE.length - 1].cumulative;
-  const maxDrawdown = Math.min(0, ...PL_TIMELINE.map((p) => p.cumulative));
-  const peakPnl = Math.max(...PL_TIMELINE.map((p) => p.pnl));
+  const { plTimeline, isTicking } = usePortfolio();
+
+  const stats = useMemo(() => {
+    const cumulative = plTimeline[plTimeline.length - 1]?.cumulative ?? 0;
+    const maxDrawdown = Math.min(0, ...plTimeline.map((p) => p.cumulative));
+    const peakPnl = plTimeline.length > 0 ? Math.max(...plTimeline.map((p) => p.pnl)) : 0;
+    return { cumulative, maxDrawdown, peakPnl };
+  }, [plTimeline]);
 
   return (
     <motion.div
@@ -162,18 +174,18 @@ export default function PLTimeline() {
       <div className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <div className="w-1.5 h-4 rounded-full bg-[var(--ox-accent-amber)]" style={{ boxShadow: "0 0 8px rgba(245,166,35,0.5)" }} />
+            <div className="w-1.5 h-4 rounded-full bg-[var(--ox-accent-amber)] glow-amber" />
             <h2 className="text-sm font-semibold text-[var(--ox-text-primary)]">
-              P&L Timeline
+              P&L Carry Timeline
             </h2>
           </div>
           <p className="text-[10px] text-[var(--ox-text-muted)] mt-0.5 ml-3.5">
-            Simulated 8-week history · marked events · hover for detail
+            Simulated 8-week history {isTicking ? "+ live ticking walk" : "· stand-by"}
           </p>
         </div>
         <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-[var(--ox-accent-amber)]/20 bg-[var(--ox-accent-amber-dim)]">
           <span className="text-[9px] font-mono text-[var(--ox-accent-amber)] font-bold">
-            DEMO
+            {isTicking ? "TICKING" : "DEMO"}
           </span>
         </div>
       </div>
@@ -184,17 +196,17 @@ export default function PLTimeline() {
       >
         <TimelineStat
           label="Net Return"
-          value={`+$${cumulative.toLocaleString()}`}
+          value={`${stats.cumulative >= 0 ? "+" : ""}$${stats.cumulative.toLocaleString()}`}
           color="var(--ox-accent-green)"
         />
         <TimelineStat
           label="Max Drawdown"
-          value={`$${Math.abs(maxDrawdown).toLocaleString()}`}
+          value={`$${Math.abs(stats.maxDrawdown).toLocaleString()}`}
           color="var(--ox-accent-red)"
         />
         <TimelineStat
-          label="Best Week"
-          value={`+$${peakPnl.toLocaleString()}`}
+          label="Best Week/Tick"
+          value={`+$${stats.peakPnl.toLocaleString()}`}
           color="var(--ox-accent-amber)"
         />
       </div>
@@ -202,7 +214,7 @@ export default function PLTimeline() {
       {/* Timeline chart */}
       <div className="h-52">
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={PL_TIMELINE} margin={{ top: 12, right: 8, left: -16, bottom: 0 }}>
+          <ComposedChart data={plTimeline} margin={{ top: 12, right: 8, left: -16, bottom: 0 }}>
             <defs>
               {/* Cumulative P&L gradient */}
               <linearGradient id="cumulGrad" x1="0" y1="0" x2="0" y2="1">
@@ -241,13 +253,16 @@ export default function PLTimeline() {
               tickLine={false}
             />
             <YAxis
-              tickFormatter={(v) => `$${v >= 0 ? "+" : ""}${v}`}
+              tickFormatter={(v) => `$${v}`}
               tick={{ fill: "#4a5568", fontSize: 9, fontFamily: "monospace" }}
               axisLine={false}
               tickLine={false}
               domain={["auto", "auto"]}
             />
-            <Tooltip content={<PLTooltip />} cursor={{ stroke: "rgba(255,255,255,0.06)", strokeWidth: 1, strokeDasharray: "4 2" }} />
+            <Tooltip
+              content={<PLTooltip plTimeline={plTimeline} />}
+              cursor={{ stroke: "rgba(255,255,255,0.06)", strokeWidth: 1, strokeDasharray: "4 2" }}
+            />
 
             {/* Zero line */}
             <ReferenceLine y={0} stroke="rgba(255,255,255,0.1)" />
@@ -259,9 +274,7 @@ export default function PLTimeline() {
               stroke="none"
               fill="url(#weekProfitGrad)"
               baseValue={0}
-              isAnimationActive
-              animationDuration={800}
-              // Only fill positive values
+              isAnimationActive={false}
               name="pnl"
             />
 
@@ -272,8 +285,7 @@ export default function PLTimeline() {
               stroke="none"
               fill="url(#cumulGrad)"
               baseValue={0}
-              isAnimationActive
-              animationDuration={700}
+              isAnimationActive={false}
               name="cumulative"
             />
 
@@ -287,8 +299,7 @@ export default function PLTimeline() {
               activeDot={{ r: 5, fill: "#00d4ff", stroke: "var(--ox-bg-void)", strokeWidth: 2 }}
               name="cumulative"
               filter="url(#lineGlowPL)"
-              isAnimationActive
-              animationDuration={600}
+              isAnimationActive={false}
             />
 
             {/* Weekly P&L bars as a line */}
@@ -300,8 +311,7 @@ export default function PLTimeline() {
               strokeDasharray="3 2"
               dot={false}
               name="pnl"
-              isAnimationActive
-              animationDuration={700}
+              isAnimationActive={false}
               opacity={0.5}
             />
           </ComposedChart>
@@ -309,7 +319,7 @@ export default function PLTimeline() {
       </div>
 
       {/* Event legend */}
-      <EventLegend />
+      <EventLegend plTimeline={plTimeline} />
 
       {/* Chart legend */}
       <div className="flex gap-5">
@@ -319,7 +329,7 @@ export default function PLTimeline() {
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-5 h-px bg-[var(--ox-accent-green)] opacity-50" style={{ borderTop: "1px dashed" }} />
-          <span className="text-[9px] text-[var(--ox-text-muted)]">Weekly P&L</span>
+          <span className="text-[9px] text-[var(--ox-text-muted)]">P&L Delta</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-2 h-2 rounded-full bg-[var(--ox-accent-amber)]" />

@@ -1,9 +1,14 @@
+// ============================================================================
+// OPTIXFLOW — Strategy Holdings Component
+// Renders active holdings and options legs with ticking price walks.
+// ============================================================================
+
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { useState } from "react";
-import { HOLDINGS, type StrategyHolding } from "@/lib/portfolio-data";
+import { useState, useEffect } from "react";
 import { ChevronDown, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { usePortfolio, type StrategyHolding } from "./PortfolioContext";
 import { cn } from "@/lib/utils";
 
 // ── Strategy badge ────────────────────────────────────────────────────────
@@ -11,7 +16,7 @@ import { cn } from "@/lib/utils";
 function StrategyBadge({ strategy, color }: { strategy: string; color: string }) {
   return (
     <span
-      className="text-[9px] font-medium px-1.5 py-0.5 rounded-md border"
+      className="text-[9px] font-medium px-1.5 py-0.5 rounded-md border shrink-0"
       style={{
         color,
         borderColor: `${color}30`,
@@ -39,9 +44,9 @@ function RiskScore({ score }: { score: number }) {
     "Extreme";
 
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-1 justify-end">
       <div
-        className="w-1 h-1 rounded-full"
+        className="w-1.5 h-1.5 rounded-full"
         style={{ background: color, boxShadow: `0 0 4px ${color}` }}
       />
       <span className="text-[9px] font-mono" style={{ color }}>
@@ -72,14 +77,14 @@ function GreekBar({
       <div className="flex justify-between">
         <span className="text-[9px] text-[var(--ox-text-muted)]">{label}</span>
         <span className="text-[9px] font-mono" style={{ color }}>
-          {isNeg ? "" : "+"}{value.toFixed(label === "Γ" ? 4 : 2)}
+          {isNeg ? "" : "+"}{value.toFixed(label.includes("Gamma") ? 4 : 2)}
         </span>
       </div>
       <div className="h-0.5 rounded-full bg-white/5 overflow-hidden">
         <motion.div
           initial={{ width: 0 }}
           animate={{ width: `${pct * 100}%` }}
-          transition={{ duration: 0.8, ease: "easeOut" }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
           className="h-full rounded-full"
           style={{ background: color }}
         />
@@ -101,32 +106,55 @@ function HoldingCard({
   isExpanded: boolean;
   onToggle: () => void;
 }) {
+  const { spotPrices, priceDirections } = usePortfolio();
   const isProfit = holding.pnl > 0;
-  const pnlColor = isProfit ? "var(--ox-accent-green)" : "var(--ox-accent-red)";
+  const pnlColor = isProfit ? "var(--ox-accent-green)" : holding.pnl === 0 ? "var(--ox-text-muted)" : "var(--ox-accent-red)";
   const PnlIcon = isProfit ? TrendingUp : holding.pnl === 0 ? Minus : TrendingDown;
+
+  const currentSpot = spotPrices[holding.ticker] || 100.0;
+  const direction = priceDirections[holding.ticker] || "flat";
+
+  // State to trigger ticking flash animation
+  const [flash, setFlash] = useState<"up" | "down" | null>(null);
+
+  useEffect(() => {
+    if (direction === "up") {
+      setFlash("up");
+      const t = setTimeout(() => setFlash(null), 400);
+      return () => clearTimeout(t);
+    } else if (direction === "down") {
+      setFlash("down");
+      const t = setTimeout(() => setFlash(null), 400);
+      return () => clearTimeout(t);
+    }
+  }, [currentSpot, direction]);
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.05 }}
+      transition={{ delay: index * 0.03 }}
       className={cn(
-        "rounded-xl border transition-all duration-200 overflow-hidden",
-        isExpanded
-          ? "border-white/10"
-          : "border-[var(--ox-border-default)]"
+        "rounded-xl border transition-all duration-200 overflow-hidden relative",
+        isExpanded ? "border-white/10" : "border-[var(--ox-border-default)]"
       )}
       style={{
         background: isExpanded ? "rgba(17,23,34,0.95)" : "rgba(11,14,22,0.6)",
         boxShadow: isExpanded ? `0 0 20px ${holding.color}10` : "none",
       }}
     >
+      {/* Ticking background flash indicator */}
+      {flash && (
+        <div
+          className={cn(
+            "absolute inset-0 pointer-events-none opacity-[0.04] transition-opacity duration-300",
+            flash === "up" ? "bg-[var(--ox-accent-green)]" : "bg-[var(--ox-accent-red)]"
+          )}
+        />
+      )}
+
       {/* ── Collapsed header row ── */}
-      <motion.button
-        onClick={onToggle}
-        whileHover={{ backgroundColor: "rgba(255,255,255,0.02)" }}
-        className="w-full text-left px-4 py-3 flex items-center gap-3"
-      >
+      <div className="w-full text-left px-4 py-3 flex items-center gap-3">
         {/* Color strip */}
         <div
           className="w-0.5 h-8 rounded-full shrink-0"
@@ -136,13 +164,28 @@ function HoldingCard({
           }}
         />
 
-        {/* Ticker + Strategy */}
-        <div className="flex-1 min-w-0">
+        {/* Ticker + Strategy + Ticking price */}
+        <div onClick={onToggle} className="flex-1 min-w-0 cursor-pointer">
           <div className="flex items-center gap-2 mb-0.5">
             <span className="text-sm font-bold font-mono text-[var(--ox-text-primary)]">
               {holding.ticker}
             </span>
             <StrategyBadge strategy={holding.strategy} color={holding.color} />
+            {/* Ticking Spot Price indicator */}
+            <span
+              className={cn(
+                "text-[10px] font-mono font-medium transition-colors duration-300 ml-1.5 px-1.5 py-0.5 rounded bg-black/30 border border-white/[0.04]",
+                flash === "up"
+                  ? "text-[var(--ox-accent-green)] border-[var(--ox-accent-green)]/20"
+                  : flash === "down"
+                  ? "text-[var(--ox-accent-red)] border-[var(--ox-accent-red)]/20"
+                  : "text-[var(--ox-text-muted)]"
+              )}
+            >
+              ${currentSpot.toFixed(2)}
+              {direction === "up" && <span className="ml-0.5 text-[8px]">▲</span>}
+              {direction === "down" && <span className="ml-0.5 text-[8px]">▼</span>}
+            </span>
           </div>
           <div className="flex items-center gap-3">
             <span className="text-[10px] text-[var(--ox-text-muted)] font-mono">
@@ -162,14 +205,14 @@ function HoldingCard({
           <div className="flex items-center gap-1 justify-end">
             <PnlIcon size={10} style={{ color: pnlColor }} />
             <span className="text-sm font-bold font-mono" style={{ color: pnlColor }}>
-              {isProfit ? "+" : ""}${Math.abs(holding.pnl).toLocaleString()}
+              {holding.pnl >= 0 ? "+" : ""}${Math.abs(holding.pnl).toLocaleString()}
             </span>
           </div>
           <span
             className="text-[9px] font-mono"
             style={{ color: isProfit ? "rgba(0,229,160,0.6)" : "rgba(255,77,106,0.6)" }}
           >
-            {isProfit ? "+" : ""}{holding.pnlPct.toFixed(1)}%
+            {holding.pnl >= 0 ? "+" : ""}{holding.pnlPct.toFixed(1)}%
           </span>
         </div>
 
@@ -188,11 +231,12 @@ function HoldingCard({
         <motion.div
           animate={{ rotate: isExpanded ? 180 : 0 }}
           transition={{ duration: 0.2 }}
-          className="shrink-0 text-[var(--ox-text-muted)]"
+          className="shrink-0 text-[var(--ox-text-muted)] cursor-pointer p-1"
+          onClick={onToggle}
         >
           <ChevronDown size={14} />
         </motion.div>
-      </motion.button>
+      </div>
 
       {/* ── Expanded detail ── */}
       <AnimatePresence>
@@ -291,10 +335,11 @@ function SortButton({
 // ── Main Panel ────────────────────────────────────────────────────────────
 
 export default function HoldingsTable() {
+  const { holdings } = usePortfolio();
   const [expanded, setExpanded] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("pnl");
 
-  const sorted = [...HOLDINGS].sort((a, b) => {
+  const sorted = [...holdings].sort((a, b) => {
     if (sortKey === "pnl")    return b.pnl - a.pnl;
     if (sortKey === "dte")    return a.daysToExpiry - b.daysToExpiry;
     if (sortKey === "risk")   return b.riskScore - a.riskScore;
@@ -302,7 +347,7 @@ export default function HoldingsTable() {
     return 0;
   });
 
-  const totalPnl = HOLDINGS.reduce((s, h) => s + h.pnl, 0);
+  const totalPnl = holdings.reduce((s, h) => s + h.pnl, 0);
 
   return (
     <motion.div
@@ -315,19 +360,19 @@ export default function HoldingsTable() {
       <div className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <div className="w-1.5 h-4 rounded-full bg-[var(--ox-accent-cyan)]" style={{ boxShadow: "0 0 8px rgba(0,212,255,0.5)" }} />
+            <div className="w-1.5 h-4 rounded-full bg-[var(--ox-accent-cyan)] glow-cyan" />
             <h2 className="text-sm font-semibold text-[var(--ox-text-primary)]">
               Strategy Holdings
             </h2>
           </div>
           <p className="text-[10px] text-[var(--ox-text-muted)] mt-0.5 ml-3.5">
-            {HOLDINGS.length} positions · click to expand Greeks
+            {holdings.length} positions · click to expand Greeks
           </p>
         </div>
         <div className="text-right">
           <p className="text-[10px] text-[var(--ox-text-muted)]">Portfolio P&L</p>
           <p
-            className="text-sm font-mono font-bold"
+            className="text-sm font-mono font-bold transition-colors duration-300"
             style={{ color: totalPnl >= 0 ? "var(--ox-accent-green)" : "var(--ox-accent-red)" }}
           >
             {totalPnl >= 0 ? "+" : ""}${totalPnl.toLocaleString()}

@@ -1,8 +1,13 @@
+// ============================================================================
+// OPTIXFLOW — Portfolio Exposure Map Component
+// Renders dynamic directional and sector weights based on current spot prices.
+// ============================================================================
+
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { useEffect, useRef, useState } from "react";
-import { EXPOSURE_SEGMENTS, PORTFOLIO_GREEKS, type ExposureSegment } from "@/lib/portfolio-data";
+import { useEffect, useRef, useState, useMemo } from "react";
+import { usePortfolio, type ExposureSegment } from "./PortfolioContext";
 
 // ── Canvas particle ring orbiting the allocation dial ────────────────────────
 
@@ -30,7 +35,6 @@ function ParticleRing({
     const cx = canvas.width / 2;
     const cy = canvas.height / 2;
 
-    // Each particle has a fixed angle offset
     const offsets = Array.from({ length: count }, (_, i) => (i / count) * Math.PI * 2);
     let frame = 0;
     let animId: number;
@@ -71,15 +75,19 @@ function ParticleRing({
 
 // ── Allocation ring arc ─────────────────────────────────────────────────────
 
-function AllocationRing({ segments }: { segments: ExposureSegment[] }) {
+function AllocationRing({ segments, netPnl }: { segments: ExposureSegment[]; netPnl: number }) {
   const SIZE = 200;
   const cx = SIZE / 2;
   const cy = SIZE / 2;
-  const rings = [
-    { r: 88, width: 14, segments: segments },
-    { r: 68, width: 8,  segments: [segments[0], segments[2]] },
-    { r: 52, width: 5,  segments: [segments[1], segments[3]] },
-  ];
+
+  // Render rings based on allocation segments
+  const rings = useMemo(() => {
+    return [
+      { r: 88, width: 14, segments: segments },
+      { r: 68, width: 8,  segments: segments.slice(0, 2) },
+      { r: 52, width: 5,  segments: segments.slice(2) },
+    ];
+  }, [segments]);
 
   function buildArc(
     cx: number,
@@ -141,7 +149,6 @@ function AllocationRing({ segments }: { segments: ExposureSegment[] }) {
                 className="cursor-pointer"
                 initial={{ pathLength: 0 }}
                 style={{ pathLength: 1 }}
-                // Animate arc draw on mount
               />
             );
           });
@@ -174,7 +181,7 @@ function AllocationRing({ segments }: { segments: ExposureSegment[] }) {
               className="text-center"
             >
               <p className="text-xl font-black font-mono text-[var(--ox-text-primary)]">
-                ${(PORTFOLIO_GREEKS.netPnl / 1000).toFixed(1)}k
+                {netPnl >= 0 ? "+" : ""}${(netPnl / 1000).toFixed(1)}k
               </p>
               <p className="text-[9px] text-[var(--ox-text-muted)] uppercase tracking-wider mt-0.5">
                 Net P&L
@@ -189,11 +196,21 @@ function AllocationRing({ segments }: { segments: ExposureSegment[] }) {
 
 // ── Directional bias bar ────────────────────────────────────────────────────
 
-function DirectionalBias() {
-  // delta / maxRisk as -1 to +1 score
-  const bullPct = 47;
-  const bearPct = 18;
-  const neutPct = 35;
+function DirectionalBias({ segments }: { segments: ExposureSegment[] }) {
+  const { bearPct, neutPct, bullPct } = useMemo(() => {
+    const bearVal = segments.find((s) => s.id === "bearish")?.pct ?? 0;
+    const neutVal = segments.find((s) => s.id === "neutral")?.pct ?? 0;
+    const bullVal = segments.find((s) => s.id === "bullish")?.pct ?? 0;
+    const volVal = segments.find((s) => s.id === "volatile")?.pct ?? 0;
+
+    const total = bearVal + neutVal + bullVal + volVal || 100;
+
+    const bearPct = Math.round((bearVal / total) * 100);
+    const neutPct = Math.round((neutVal / total) * 100);
+    const bullPct = 100 - bearPct - neutPct; // Sum to 100%
+
+    return { bearPct, neutPct, bullPct };
+  }, [segments]);
 
   return (
     <div className="space-y-2">
@@ -205,21 +222,21 @@ function DirectionalBias() {
           className="h-full"
           initial={{ width: 0 }}
           animate={{ width: `${bearPct}%` }}
-          transition={{ duration: 1, delay: 0.2 }}
+          transition={{ duration: 0.6 }}
           style={{ background: "linear-gradient(90deg, #ff4d6a80, #ff4d6a)" }}
         />
         <motion.div
           className="h-full"
           initial={{ width: 0 }}
           animate={{ width: `${neutPct}%` }}
-          transition={{ duration: 1, delay: 0.3 }}
+          transition={{ duration: 0.6 }}
           style={{ background: "linear-gradient(90deg, #00d4ff60, #00d4ff80)" }}
         />
         <motion.div
           className="h-full"
           initial={{ width: 0 }}
           animate={{ width: `${bullPct}%` }}
-          transition={{ duration: 1, delay: 0.4 }}
+          transition={{ duration: 0.6 }}
           style={{ background: "linear-gradient(90deg, #00e5a060, #00e5a0)" }}
         />
       </div>
@@ -271,6 +288,8 @@ function ExposureDetail({ segment }: { segment: ExposureSegment }) {
 // ── Main Panel ──────────────────────────────────────────────────────────────
 
 export default function ExposureMap() {
+  const { exposureSegments, portfolioGreeks } = usePortfolio();
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
@@ -294,11 +313,11 @@ export default function ExposureMap() {
         <div className="text-right">
           <p className="text-[10px] text-[var(--ox-text-muted)]">Net P&L</p>
           <p
-            className="text-sm font-mono font-bold"
-            style={{ color: PORTFOLIO_GREEKS.netPnl >= 0 ? "var(--ox-accent-green)" : "var(--ox-accent-red)" }}
+            className="text-sm font-mono font-bold transition-colors duration-300"
+            style={{ color: portfolioGreeks.netPnl >= 0 ? "var(--ox-accent-green)" : "var(--ox-accent-red)" }}
           >
-            {PORTFOLIO_GREEKS.netPnl >= 0 ? "+" : ""}
-            ${PORTFOLIO_GREEKS.netPnl.toLocaleString()}
+            {portfolioGreeks.netPnl >= 0 ? "+" : ""}
+            ${portfolioGreeks.netPnl.toLocaleString()}
           </p>
         </div>
       </div>
@@ -307,14 +326,14 @@ export default function ExposureMap() {
       <div className="flex items-start gap-6">
         {/* Animated allocation ring */}
         <div className="relative">
-          <AllocationRing segments={EXPOSURE_SEGMENTS} />
+          <AllocationRing segments={exposureSegments} netPnl={portfolioGreeks.netPnl} />
           <ParticleRing radius={100} count={6}  color="#00e5a0" speed={0.4} size={2} />
           <ParticleRing radius={80}  count={4}  color="#00d4ff" speed={0.6} size={1.5} />
         </div>
 
         {/* Segment details */}
         <div className="flex-1 min-w-0 space-y-0">
-          {EXPOSURE_SEGMENTS.map((seg, i) => (
+          {exposureSegments.map((seg, i) => (
             <motion.div
               key={seg.id}
               initial={{ opacity: 0, x: 16 }}
@@ -328,16 +347,16 @@ export default function ExposureMap() {
       </div>
 
       {/* Directional bias bar */}
-      <DirectionalBias />
+      <DirectionalBias segments={exposureSegments} />
 
       {/* Portfolio stats row */}
       <div className="grid grid-cols-3 gap-2 rounded-xl border border-[var(--ox-border-subtle)] p-3"
         style={{ background: "rgba(7,9,15,0.6)" }}
       >
         {[
-          { label: "Win Rate",    value: `${(PORTFOLIO_GREEKS.winRate * 100).toFixed(0)}%`, color: "var(--ox-accent-green)" },
-          { label: "Avg IV",      value: `${PORTFOLIO_GREEKS.avgIV}%`,                      color: "var(--ox-accent-cyan)" },
-          { label: "Max Risk",    value: `$${(PORTFOLIO_GREEKS.maxRisk / 1000).toFixed(1)}k`, color: "var(--ox-accent-red)" },
+          { label: "Win Rate",    value: `${(portfolioGreeks.winRate * 100).toFixed(0)}%`, color: "var(--ox-accent-green)" },
+          { label: "Avg IV",      value: `${portfolioGreeks.avgIV.toFixed(1)}%`,           color: "var(--ox-accent-cyan)" },
+          { label: "Max Risk",    value: `$${(portfolioGreeks.maxRisk / 1000).toFixed(1)}k`, color: "var(--ox-accent-red)" },
         ].map(({ label, value, color }) => (
           <div key={label} className="text-center">
             <p className="text-[9px] uppercase tracking-wider text-[var(--ox-text-muted)]">{label}</p>
