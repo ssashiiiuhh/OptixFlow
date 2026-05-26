@@ -4,7 +4,7 @@
 // Supports simulated real-time ticking feeds and actual Polygon.io/Tradier keys.
 // ============================================================================
 
-import { bsmPrice, bsmGreeks } from "../finance/theta";
+import { bsmPrice, bsmGreeks, calculateStrikeIv, generateStressGrid } from "../quant";
 
 // ── TYPES & INTERFACES ──────────────────────────────────────────────────────
 
@@ -375,24 +375,15 @@ class MarketDataService {
     strike: number,
     dte: number
   ): number {
-    const spot = asset.price;
-    const diff = strike - spot;
-    
-    // 1. Skew Smile Model: baseIv + steepness * diff^2 + tilt * diff
-    const smileIv = asset.iv30 + asset.skewSteepness * Math.pow(diff, 2) + asset.skewTilt * diff;
-    const baseStrikeIv = Math.max(5.0, smileIv);
-
-    // 2. Term Structure Model: Adjust based on Contango vs Backwardation
-    let finalIv = baseStrikeIv;
-    if (asset.isBackwardation) {
-      // In backwardation: front-end DTE has higher IV than long-end
-      finalIv = baseStrikeIv * (1.35 * Math.exp(-dte / 30));
-    } else {
-      // In contango: front-end DTE is lower, long-end is higher
-      finalIv = baseStrikeIv * (0.8 + 0.25 * (1 - Math.exp(-dte / 35)));
-    }
-
-    return Math.max(5.0, Math.round(finalIv * 10) / 10) / 100; // Return as decimal
+    return calculateStrikeIv(
+      asset.price,
+      strike,
+      dte,
+      asset.iv30,
+      asset.skewSteepness,
+      asset.skewTilt,
+      asset.isBackwardation
+    );
   }
 
   /**
@@ -507,62 +498,16 @@ class MarketDataService {
     qty: number = 1
   ) {
     const asset = this.getAsset(ticker);
-    const spot = asset.price;
-    const baseIv = asset.iv30;
-    const t = dte / 365;
-
-    // Grid coordinates
-    const spotMoves = [-0.10, -0.05, -0.02, 0, 0.02, 0.05, 0.10];
-    const volMoves = [-10, -5, 0, 5, 10, 15]; // IV percentage point changes
-
-    // Calculate baseline strategy price
-    const baselineValue = legs.reduce((acc, leg) => {
-      const strikeIv = this.calculateStrikeIv(asset, leg.strike, dte);
-      const sign = leg.side === "long" ? 1 : -1;
-      return acc + bsmPrice(spot, leg.strike, t, strikeIv, 0.05, leg.type) * sign * leg.quantity;
-    }, 0);
-
-    const rows = volMoves.map((volShift) => {
-      const cells = spotMoves.map((spotShift) => {
-        const stressedSpot = spot * (1 + spotShift);
-        const stressedIvBase = Math.max(5.0, baseIv + volShift);
-        
-        // Dynamic Asset Mock for calculation
-        const stressedAsset: MarketAsset = {
-          ...asset,
-          price: stressedSpot,
-          iv30: stressedIvBase,
-        };
-
-        // Price under stress
-        const stressedValue = legs.reduce((acc, leg) => {
-          const strikeIv = this.calculateStrikeIv(stressedAsset, leg.strike, dte);
-          const sign = leg.side === "long" ? 1 : -1;
-          return acc + bsmPrice(stressedSpot, leg.strike, t, strikeIv, 0.05, leg.type) * sign * leg.quantity;
-        }, 0);
-
-        const pnl = (stressedValue - baselineValue) * qty * 100; // scale for 100 contracts
-
-        return {
-          spotShift,
-          volShift,
-          price: stressedSpot,
-          iv: stressedIvBase,
-          pnl: Math.round(pnl),
-        };
-      });
-
-      return {
-        volShift,
-        cells,
-      };
+    return generateStressGrid({
+      spot: asset.price,
+      baseIv: asset.iv30,
+      legs,
+      dte,
+      qty,
+      skewSteepness: asset.skewSteepness,
+      skewTilt: asset.skewTilt,
+      isBackwardation: asset.isBackwardation
     });
-
-    return {
-      spotMoves,
-      volMoves,
-      rows,
-    };
   }
 
   // Listeners Management

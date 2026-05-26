@@ -66,6 +66,11 @@ Motion in OptixFlow must be intentional, physically grounded, and hierarchical.
 - **Decision:** Bind camera physics `mousemove` listeners to the global `window` object inside a `useEffect` instead of a React `div` boundary.
 - **Reasoning:** Relying on DOM container boundaries triggers premature `mouseLeave` resets when touching padding/margins, resulting in aggressive spring-back snaps.
 
+### 4. Centralized Quant Infrastructure Layer (`/src/lib/quant/`)
+- **Decision:** Extracted scattered quantitative math from pages, classes, and helper files into a unified, pure-functional, decoupled library structure.
+- **Reasoning:** Prevents mathematical drift, ensures deterministic calculation, simplifies unit testing, and establishes a robust backbone for advanced simulation features.
+- **Implementation:** Created 7 specialized sub-modules (probability, greeks, volatility, regime, strategies, simulation, portfolio) with type-safe contracts. Converted original source files into thin re-export shims to maintain backward compatibility.
+
 ## 6. Current Systems
 
 Currently implemented modules:
@@ -75,6 +80,7 @@ Currently implemented modules:
 - **Analytics Lab:** Volatility diagnostics panel, 3D implied volatility skew surfaces, and suitability geometries table.
 - **Portfolio Intelligence:** Capital allocation metrics, positions table, aggregate Greek calculation, and global volatility/price shock simulator.
 - **Constellation Universe:** The signature spatial playbook node network (`/playbook`) with ambient canvas physics, glowing connection path vectors, and preview cards.
+- **Quant Infrastructure Core:** The mathematical engine powering all platform statistics (Black-Scholes-Merton, analytic Greeks with Rho, skew smile surface generator, regime classifier, payoff series builder, stress grid generator, portfolio greeks aggregator, and GBM Monte Carlo simulator).
 
 ## 7. Active Problems
 
@@ -86,9 +92,9 @@ Currently implemented modules:
 
 Ambitious features to build out the OptixFlow ecosystem:
 - **Volatility Simulations:** Real-time 3D volatility surface mapping.
-- **Probability Cones:** Visualizing statistical price distributions over time alongside strategy payoffs.
-- **Portfolio Intelligence:** AI-driven strategy recommendations based on a user's current directional and volatility exposure.
-- **Scenario Engine:** "What-If" sliders that globally shift implied volatility and days-to-expiration across the entire Portfolio to stress-test positions.
+- **Probability Cones:** Visualizing statistical price distributions over time alongside strategy payoffs (infrastructure complete).
+- **Portfolio Intelligence:** AI-driven strategy recommendations based on a user's current directional and volatility exposure (infrastructure complete).
+- **Scenario Engine:** "What-If" sliders that globally shift implied volatility and days-to-expiration across the entire Portfolio to stress-test positions (infrastructure complete).
 
 ## 9. Session Logs
 
@@ -97,6 +103,11 @@ Ambitious features to build out the OptixFlow ecosystem:
 - **Production Hardening:** Relocated Strategy Lab to `/strategy` and converted route pages into Server Components. Added SEO metadata, favicon configurations, global loading skeletons (`loading.tsx`), and error boundaries (`error.tsx`).
 - **Deployments:** Configured credentials and successfully deployed OptixFlow to production on Vercel at `https://optixflow-silk.vercel.app`. Committed and synchronized the codebase to GitHub at `ssashiiiuhh/OptixFlow`.
 - **Lessons:** Separating route-level wrappers from client interaction elements optimizes pre-rendering and permits static Next.js metadata compilation. Checking client mounting state inside hooks completely eliminates SSR hydration warnings.
+
+### Session: May 26, 2026 - Centralized Quant Infrastructure Layer
+- **Achievements:** Created the dedicated quant engine architecture at `/src/lib/quant/`. Modularized Greeks (Delta, Gamma, Theta, Vega, Rho via Black-Scholes), Volatility Surface (skew smile modelling, contango/backwardation structure, mesh surface), Probability (POP, probability cones, CDF/PDF), Regime Intelligence (classification, suitability scoring), Simulation (stress testing grid, Geometric Brownian Motion Monte Carlo foundation), Strategies (legs construction, payoffs, dynamic metrics), and Portfolio (net Greek aggregation).
+- **Integration:** Replaced old implementations in `theta.ts`, `TradeIntelEngine.ts`, and `RegimeSuitabilityEngine.ts` with thin re-export shims/compatibility wrappers. Integrated `MarketDataService` to route all chain calculations and risk stress grids through the central quant engine.
+- **Validation:** Clean compilation of the entire Next.js application using Turbopack with zero errors. All routes (`/`, `/analytics`, `/portfolio`, `/playbook`, `/intelligence`, `/strategy`) prerendered and verified successfully.
 
 ## 10. AI Collaboration Notes
 
