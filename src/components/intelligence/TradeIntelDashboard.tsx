@@ -395,7 +395,7 @@ export default function TradeIntelDashboard() {
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5 p-5 min-h-0 relative z-10 overflow-y-auto lg:overflow-hidden">
         
         {/* Left Column: Thesis Constructor Cockpit (col-span-4 / 3) */}
-        <div className="lg:col-span-4 xl:col-span-3 flex flex-col gap-4 overflow-y-auto lg:overflow-visible pr-0 lg:pr-1">
+        <div className="lg:col-span-4 xl:col-span-3 flex flex-col gap-4 h-full min-h-0 overflow-y-auto pr-0 lg:pr-1">
           <ThesisConstructor onChange={setThesis} />
 
           {/* Active Regime HUD */}
@@ -805,7 +805,7 @@ export default function TradeIntelDashboard() {
         </div>
 
         {/* Right Column: Structural Fit Rankings (col-span-3) */}
-        <div className="lg:col-span-3 flex flex-col gap-4 overflow-y-auto lg:overflow-visible min-w-0 pr-0 lg:pr-1">
+        <div className="lg:col-span-3 flex flex-col gap-4 h-full min-h-0 overflow-hidden min-w-0 pr-0 lg:pr-1">
           
           {/* Header */}
           <div className="font-mono flex flex-col gap-0.5 shrink-0">
@@ -818,112 +818,112 @@ export default function TradeIntelDashboard() {
           </div>
 
           {/* Ranked strategies list */}
-          <div className="flex-1 flex flex-col gap-3 min-h-0 overflow-y-auto pr-1 pb-2">
-            
-            {/* HERO (#1 ranked strategy) */}
-            {topStrategy && (
-              <motion.div
-                layout
-                onClick={() => setSelectedStrategyId(topStrategy.id)}
-                className={`group rounded-2xl p-4.5 border cursor-pointer relative overflow-hidden transition-all shadow-xl ${
-                  selectedStrategy.id === topStrategy.id
-                    ? "bg-[#061826]/40 border-cyan-500/40 shadow-cyan-950/20"
-                    : "bg-[#05070c]/90 border-white/10 hover:border-white/20"
-                }`}
-                style={{
-                  boxShadow: selectedStrategy.id === topStrategy.id
-                    ? "0 0 16px rgba(6, 182, 212, 0.15), inset 0 0 10px rgba(6, 182, 212, 0.05)"
-                    : "none"
-                }}
-              >
-                {/* Glow border overlay */}
-                <div className="absolute top-0 right-0 h-[1px] w-[50%] bg-gradient-to-l from-cyan-400 to-transparent group-hover:w-full transition-all duration-700" />
-                <div className="absolute top-0 right-0 w-[1px] h-[50%] bg-gradient-to-b from-cyan-400 to-transparent group-hover:h-full transition-all duration-700" />
-                
-                {/* Dominant Label */}
-                <div className="flex justify-between items-start mb-2 font-mono">
-                  <span className="text-[8px] font-bold border border-cyan-500/30 bg-cyan-500/5 px-2 py-0.5 rounded text-cyan-400">
-                    #1 STRUCTURAL FIT
-                  </span>
-                  <span className="text-[7.5px] uppercase tracking-wider text-white/40 font-semibold">
-                    Complexity: {topStrategy.complexity}
-                  </span>
-                </div>
-
-                <h4 className="text-sm font-bold text-white group-hover:text-cyan-400 transition-colors">
-                  {topStrategy.name}
-                </h4>
-
-                {/* Score Dial */}
-                <div className="my-3 flex items-center gap-3.5">
-                  <div className="relative w-11 h-11 shrink-0 flex items-center justify-center">
-                    {/* Ring background */}
-                    <svg viewBox="0 0 36 36" className="w-full h-full rotate-[-90deg]">
-                      <circle cx="18" cy="18" r="15.915" fill="none" stroke="rgba(255,255,255,0.03)" strokeWidth="2.5" />
-                      <circle
-                        cx="18"
-                        cy="18"
-                        r="15.915"
-                        fill="none"
-                        stroke="#00e5a0"
-                        strokeWidth="2.5"
-                        strokeDasharray={`${topStrategy.score} ${100 - topStrategy.score}`}
-                        className="transition-all duration-1000 ease-out"
-                      />
-                    </svg>
-                    <span className="absolute font-mono text-[10px] font-bold text-emerald-400">{topStrategy.score}</span>
-                  </div>
-
-                  <div className="font-mono text-[9px] leading-normal text-white/60">
-                    <div>Confidence: <span className="text-emerald-400 font-bold uppercase">{topStrategy.confidence}</span></div>
-                    <div className="mt-0.5 text-[8.5px] text-white/45">{topStrategy.regimeCompatibility}</div>
-                  </div>
-                </div>
-
-                {/* Greek Profile grid */}
-                <div className="grid grid-cols-4 gap-1.5 font-mono text-[8px] bg-white/2 border border-white/5 rounded-xl p-2 mt-2">
-                  <div className="text-center">
-                    <span className="text-white/35 block">Delta</span>
-                    <span className="text-white font-bold">{topStrategy.greekProfile.delta.toFixed(2)}</span>
-                  </div>
-                  <div className="text-center">
-                    <span className="text-white/35 block">Gamma</span>
-                    <span className="text-white font-bold">{topStrategy.greekProfile.gamma.toFixed(3)}</span>
-                  </div>
-                  <div className="text-center">
-                    <span className="text-white/35 block">Theta</span>
-                    <span className="text-rose-400 font-bold">{topStrategy.greekProfile.theta.toFixed(1)}</span>
-                  </div>
-                  <div className="text-center">
-                    <span className="text-white/35 block">Vega</span>
-                    <span className="text-purple-400 font-bold">{topStrategy.greekProfile.vega.toFixed(1)}</span>
-                  </div>
-                </div>
-
-                {/* Reasoning Statement */}
-                <p className="mt-3 font-mono text-[9px] text-white/55 leading-relaxed bg-white/2 border border-white/5 p-2 rounded-xl">
-                  {topStrategy.reasoning}
-                </p>
-              </motion.div>
-            )}
-
-            {/* Lower-ranked strategy rows */}
-            <div className="space-y-2">
-              {rankedStrategies.slice(1).map((strat, idx) => {
-                const isSelected = selectedStrategy.id === strat.id;
+          <div className="flex-1 flex flex-col gap-3 min-h-0 overflow-y-auto pr-1 pb-4">
+            {rankedStrategies.map((strat, idx) => {
+              const isSelected = selectedStrategy.id === strat.id;
+              
+              if (isSelected) {
+                // Expanded card view for the selected strategy
                 return (
                   <motion.div
                     layout
                     key={strat.id}
                     onClick={() => setSelectedStrategyId(strat.id)}
-                    className={`p-3 rounded-xl border font-mono text-[10px] cursor-pointer transition-all flex items-center justify-between ${
-                      isSelected
-                        ? "bg-[#061826]/30 border-cyan-500/25 text-cyan-400 shadow-md"
-                        : "bg-[#05070c]/70 border-white/5 text-white/60 hover:border-white/10 hover:text-white"
-                    }`}
+                    className="group rounded-2xl p-4.5 border border-cyan-500/40 bg-[#061826]/40 cursor-pointer relative overflow-hidden transition-all shadow-xl"
+                    style={{
+                      boxShadow: "0 0 16px rgba(6, 182, 212, 0.15), inset 0 0 10px rgba(6, 182, 212, 0.05)"
+                    }}
+                  >
+                    {/* Glow border overlay */}
+                    <div className="absolute top-0 right-0 h-[1px] w-[50%] bg-gradient-to-l from-cyan-400 to-transparent group-hover:w-full transition-all duration-700" />
+                    <div className="absolute top-0 right-0 w-[1px] h-[50%] bg-gradient-to-b from-cyan-400 to-transparent group-hover:h-full transition-all duration-700" />
+                    
+                    {/* Rank & Complexity Header */}
+                    <div className="flex justify-between items-start mb-2 font-mono">
+                      <span className={`text-[8px] font-bold border px-2 py-0.5 rounded ${
+                        idx === 0
+                          ? "border-cyan-500/30 bg-cyan-500/5 text-cyan-400"
+                          : "border-white/10 bg-white/5 text-white/50"
+                      }`}>
+                        #{idx + 1} {idx === 0 ? "STRUCTURAL FIT" : "STRATEGY FIT"}
+                      </span>
+                      <span className="text-[7.5px] uppercase tracking-wider text-white/40 font-semibold">
+                        Complexity: {strat.complexity}
+                      </span>
+                    </div>
+
+                    <h4 className="text-sm font-bold text-white group-hover:text-cyan-400 transition-colors">
+                      {strat.name}
+                    </h4>
+
+                    {/* Score Dial */}
+                    <div className="my-3 flex items-center gap-3.5">
+                      <div className="relative w-11 h-11 shrink-0 flex items-center justify-center">
+                        <svg viewBox="0 0 36 36" className="w-full h-full rotate-[-90deg]">
+                          <circle cx="18" cy="18" r="15.915" fill="none" stroke="rgba(255,255,255,0.03)" strokeWidth="2.5" />
+                          <circle
+                            cx="18"
+                            cy="18"
+                            r="15.915"
+                            fill="none"
+                            stroke={strat.score >= 75 ? "#00e5a0" : strat.score >= 50 ? "#0ea5e9" : "#ff4d6a"}
+                            strokeWidth="2.5"
+                            strokeDasharray={`${strat.score} ${100 - strat.score}`}
+                            className="transition-all duration-1000 ease-out"
+                          />
+                        </svg>
+                        <span className={`absolute font-mono text-[10px] font-bold ${
+                          strat.score >= 75 ? "text-emerald-400" : strat.score >= 50 ? "text-cyan-400" : "text-rose-400"
+                        }`}>{strat.score}</span>
+                      </div>
+
+                      <div className="font-mono text-[9px] leading-normal text-white/60">
+                        <div>Confidence: <span className={
+                          strat.score >= 75 ? "text-emerald-400 font-bold uppercase" :
+                          strat.score >= 50 ? "text-cyan-400 font-bold uppercase" :
+                          "text-rose-400 font-bold uppercase"
+                        }>{strat.confidence}</span></div>
+                        <div className="mt-0.5 text-[8.5px] text-white/45">{strat.regimeCompatibility}</div>
+                      </div>
+                    </div>
+
+                    {/* Greek Profile grid */}
+                    <div className="grid grid-cols-4 gap-1.5 font-mono text-[8px] bg-white/2 border border-white/5 rounded-xl p-2 mt-2">
+                      <div className="text-center">
+                        <span className="text-white/35 block">Delta</span>
+                        <span className="text-white font-bold">{strat.greekProfile.delta.toFixed(2)}</span>
+                      </div>
+                      <div className="text-center">
+                        <span className="text-white/35 block">Gamma</span>
+                        <span className="text-white font-bold">{strat.greekProfile.gamma.toFixed(3)}</span>
+                      </div>
+                      <div className="text-center">
+                        <span className="text-white/35 block">Theta</span>
+                        <span className="text-rose-400 font-bold">{strat.greekProfile.theta.toFixed(1)}</span>
+                      </div>
+                      <div className="text-center">
+                        <span className="text-white/35 block">Vega</span>
+                        <span className="text-purple-400 font-bold">{strat.greekProfile.vega.toFixed(1)}</span>
+                      </div>
+                    </div>
+
+                    {/* Reasoning Statement */}
+                    <p className="mt-3 font-mono text-[9px] text-white/55 leading-relaxed bg-white/2 border border-white/5 p-2 rounded-xl">
+                      {strat.reasoning}
+                    </p>
+                  </motion.div>
+                );
+              } else {
+                // Collapsed row view for other strategies
+                return (
+                  <motion.div
+                    layout
+                    key={strat.id}
+                    onClick={() => setSelectedStrategyId(strat.id)}
+                    className="p-3 rounded-xl border border-white/5 bg-[#05070c]/70 hover:border-white/10 text-white/60 hover:text-white font-mono text-[10px] cursor-pointer transition-all flex items-center justify-between"
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <span className="text-[8.5px] text-white/20 font-bold">#{idx + 2}</span>
+                      <span className="text-[8.5px] text-white/20 font-bold">#{idx + 1}</span>
                       
                       <div className="min-w-0">
                         <span className="font-bold truncate block">{strat.name}</span>
@@ -933,7 +933,9 @@ export default function TradeIntelDashboard() {
 
                     <div className="flex items-center gap-3 shrink-0 ml-2">
                       <span className={`text-[9.5px] font-bold ${
-                        strat.score >= 50 ? "text-cyan-400" : "text-rose-400"
+                        strat.score >= 75 ? "text-emerald-400" :
+                        strat.score >= 50 ? "text-cyan-400" :
+                        "text-rose-400"
                       }`}>
                         {strat.score}
                       </span>
@@ -941,9 +943,8 @@ export default function TradeIntelDashboard() {
                     </div>
                   </motion.div>
                 );
-              })}
-            </div>
-
+              }
+            })}
           </div>
 
         </div>
