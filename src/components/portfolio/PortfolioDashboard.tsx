@@ -1,12 +1,12 @@
 // ============================================================================
-// OPTIXFLOW — Portfolio Dashboard Client Component
-// Renders dynamic holdings, exposure maps, and scenario stress testing.
+// OPTIXFLOW — Portfolio Dashboard Client Component v2
+// Integrates: 3D Vol Surface, Delta-Hedger, Market Playback, AI Console.
 // ============================================================================
 
 "use client";
 
 import { motion } from "framer-motion";
-import { Play, Pause, SkipForward, RotateCcw } from "lucide-react";
+import { Play, Pause, SkipForward, RotateCcw, Clock } from "lucide-react";
 import ExposureMap from "@/components/portfolio/ExposureMap";
 import HoldingsTable from "@/components/portfolio/HoldingsTable";
 import PortfolioGreeks from "@/components/portfolio/PortfolioGreeks";
@@ -14,7 +14,11 @@ import RiskSimulator from "@/components/portfolio/RiskSimulator";
 import PLTimeline from "@/components/portfolio/PLTimeline";
 import MonteCarloRisk from "@/components/portfolio/MonteCarloRisk";
 import PortfolioConsole from "@/components/portfolio/PortfolioConsole";
+import VolatilitySurface3D from "@/components/portfolio/VolatilitySurface3D";
+import DeltaHedger from "@/components/portfolio/DeltaHedger";
+import MarketPlayback from "@/components/portfolio/MarketPlayback";
 import { PortfolioProvider, usePortfolio } from "./PortfolioContext";
+import { cn } from "@/lib/utils";
 
 function PortfolioHeader() {
   const {
@@ -24,6 +28,8 @@ function PortfolioHeader() {
     manualTick,
     resetPortfolio,
     holdings,
+    playbackMode,
+    playbackIsPlaying,
   } = usePortfolio();
 
   const pct = ((portfolioGreeks.netPnl / portfolioGreeks.totalCost) * 100).toFixed(1);
@@ -45,53 +51,54 @@ function PortfolioHeader() {
             <span className="text-[9px] font-mono text-[var(--ox-accent-green)] border border-[var(--ox-accent-green)]/20 bg-[var(--ox-accent-green-dim)] rounded-full px-2 py-0.5 uppercase tracking-wider">
               {holdings.length} Positions
             </span>
+            {playbackMode && (
+              <span className="text-[9px] font-mono text-[var(--ox-accent-amber)] border border-[var(--ox-accent-amber)]/30 bg-[var(--ox-accent-amber)]/10 rounded-full px-2 py-0.5 uppercase tracking-wider flex items-center gap-1">
+                <Clock size={8} />
+                {playbackIsPlaying ? "Playback ●" : "Playback ‖"}
+              </span>
+            )}
           </div>
           <p className="text-[11px] text-[var(--ox-text-muted)] mt-0.5">
-            Exposure · Risk Engine · Greeks · Scenario Analysis · P&L
+            Exposure · 3D Vol Surface · Delta-Hedger · Market Playback · AI Narration
           </p>
         </div>
 
-        {/* Dynamic Ticking Controller HUD */}
-        <div className="flex items-center gap-2 bg-black/40 border border-white/[0.06] rounded-xl px-3 py-1.5 self-start md:self-auto">
-          <span className="text-[9px] font-mono uppercase tracking-widest text-[var(--ox-text-muted)] mr-2 flex items-center gap-1.5">
-            Ticking Engine
-            {isTicking && (
-              <span className="h-1.5 w-1.5 rounded-full bg-[var(--ox-accent-green)] animate-pulse" />
-            )}
-          </span>
-
-          {/* Play/Pause */}
-          <button
-            onClick={() => setIsTicking(!isTicking)}
-            className={`p-1.5 rounded-lg border transition-all duration-200 flex items-center justify-center ${
-              isTicking
-                ? "border-[var(--ox-accent-green)]/30 bg-[var(--ox-accent-green)]/10 text-[var(--ox-accent-green)] shadow-[0_0_8px_rgba(0,229,160,0.15)]"
-                : "border-white/[0.08] bg-white/[0.02] text-[var(--ox-text-muted)] hover:text-[var(--ox-text-secondary)]"
-            }`}
-            title={isTicking ? "Pause Simulation" : "Start Live Ticking"}
-          >
-            {isTicking ? <Pause size={12} /> : <Play size={12} />}
-          </button>
-
-          {/* Single Step */}
-          <button
-            onClick={manualTick}
-            disabled={isTicking}
-            className="p-1.5 rounded-lg border border-white/[0.08] bg-white/[0.02] text-[var(--ox-text-muted)] hover:text-[var(--ox-text-secondary)] disabled:opacity-30 disabled:pointer-events-none transition-colors flex items-center justify-center"
-            title="Single Price Step"
-          >
-            <SkipForward size={12} />
-          </button>
-
-          {/* Reset */}
-          <button
-            onClick={resetPortfolio}
-            className="p-1.5 rounded-lg border border-white/[0.08] bg-white/[0.02] text-[var(--ox-text-muted)] hover:text-[var(--ox-accent-red)] transition-colors flex items-center justify-center"
-            title="Reset to Baseline"
-          >
-            <RotateCcw size={12} />
-          </button>
-        </div>
+        {/* Ticking Engine HUD (hidden during playback) */}
+        {!playbackMode && (
+          <div className="flex items-center gap-2 bg-black/40 border border-white/[0.06] rounded-xl px-3 py-1.5 self-start md:self-auto">
+            <span className="text-[9px] font-mono uppercase tracking-widest text-[var(--ox-text-muted)] mr-2 flex items-center gap-1.5">
+              Ticking Engine
+              {isTicking && <span className="h-1.5 w-1.5 rounded-full bg-[var(--ox-accent-green)] animate-pulse" />}
+            </span>
+            <button
+              onClick={() => setIsTicking(!isTicking)}
+              className={cn(
+                "p-1.5 rounded-lg border transition-all duration-200 flex items-center justify-center",
+                isTicking
+                  ? "border-[var(--ox-accent-green)]/30 bg-[var(--ox-accent-green)]/10 text-[var(--ox-accent-green)] shadow-[0_0_8px_rgba(0,229,160,0.15)]"
+                  : "border-white/[0.08] bg-white/[0.02] text-[var(--ox-text-muted)] hover:text-[var(--ox-text-secondary)]"
+              )}
+              title={isTicking ? "Pause Simulation" : "Start Live Ticking"}
+            >
+              {isTicking ? <Pause size={12} /> : <Play size={12} />}
+            </button>
+            <button
+              onClick={manualTick}
+              disabled={isTicking}
+              className="p-1.5 rounded-lg border border-white/[0.08] bg-white/[0.02] text-[var(--ox-text-muted)] hover:text-[var(--ox-text-secondary)] disabled:opacity-30 disabled:pointer-events-none transition-colors flex items-center justify-center"
+              title="Single Price Step"
+            >
+              <SkipForward size={12} />
+            </button>
+            <button
+              onClick={resetPortfolio}
+              className="p-1.5 rounded-lg border border-white/[0.08] bg-white/[0.02] text-[var(--ox-text-muted)] hover:text-[var(--ox-accent-red)] transition-colors flex items-center justify-center"
+              title="Reset to Baseline"
+            >
+              <RotateCcw size={12} />
+            </button>
+          </div>
+        )}
 
         {/* Portfolio snapshot */}
         <div className="flex items-center gap-6 font-mono text-[var(--ox-text-secondary)] self-end md:self-auto">
@@ -128,41 +135,51 @@ function PortfolioHeader() {
 function PortfolioDashboardContent() {
   return (
     <div className="flex-1 overflow-hidden flex flex-col relative">
-      {/* Green ambient background */}
+      {/* Ambient background */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
           background: [
             "radial-gradient(ellipse 50% 60% at 0% 30%, rgba(0,229,160,0.04) 0%, transparent 60%)",
             "radial-gradient(ellipse 40% 40% at 100% 70%, rgba(255,77,106,0.04) 0%, transparent 60%)",
+            "radial-gradient(ellipse 30% 50% at 50% 100%, rgba(168,85,247,0.03) 0%, transparent 60%)",
           ].join(", "),
         }}
       />
-      <div className="absolute inset-0 bg-grid opacity-30 pointer-events-none" />
+      <div className="absolute inset-0 bg-grid opacity-25 pointer-events-none" />
 
       <PortfolioHeader />
 
-      {/* Grid Content */}
       <div className="flex-1 overflow-y-auto px-5 py-4 relative z-10">
-        <div className="grid grid-cols-1 xl:grid-cols-[360px_1fr] gap-4 min-h-full">
-          {/* Left column: Exposure + Greeks + Monte Carlo stacked */}
+        {/* Market Playback — collapsible transport at top */}
+        <div className="mb-4">
+          <MarketPlayback />
+        </div>
+
+        {/* Main grid */}
+        <div className="grid grid-cols-1 xl:grid-cols-[380px_1fr] gap-4">
+          {/* Left column */}
           <div className="space-y-4">
             <ExposureMap />
             <PortfolioGreeks />
             <MonteCarloRisk />
+            <DeltaHedger />
           </div>
 
-          {/* Right column: Holdings top, then 2-col split, then Telemetry Console */}
+          {/* Right column */}
           <div className="space-y-4">
+            {/* 3D Volatility Surface — full-width feature panel */}
+            <VolatilitySurface3D />
+
             <HoldingsTable />
 
-            {/* Bottom row: Risk sim + P&L side by side */}
+            {/* Bottom split: Risk Sim + P&L */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <RiskSimulator />
               <PLTimeline />
             </div>
 
-            {/* Scrolling Monospace log terminal */}
+            {/* AI-enhanced telemetry console */}
             <PortfolioConsole />
           </div>
         </div>

@@ -1,11 +1,14 @@
 // ============================================================================
 // OPTIXFLOW — Portfolio Intelligence React Context Provider
-// Manages ticking spot prices, IV, dynamic Greeks netting, and Monte Carlo VaR.
+// v2: Adds Delta-Hedger, Historical Playback, and AI Narration systems.
 // ============================================================================
 
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from "react";
+import React, {
+  createContext, useContext, useState, useEffect,
+  useMemo, useCallback, useRef,
+} from "react";
 import {
   PositionLeg,
   StrategyHoldingGroup,
@@ -25,8 +28,10 @@ import {
   generatePortfolioNarration,
 } from "@/lib/portfolio";
 import { RAW_LEGS, SPOT_PRICES as INITIAL_SPOT_PRICES, IVS as INITIAL_IVS } from "@/lib/portfolio-data";
+import { computeHedgeSignal, type DeltaHedgerState } from "@/lib/portfolio/hedger/deltaHedger";
+import { HISTORICAL_SCENARIOS, type HistoricalScenario } from "@/lib/portfolio/playback/historicalScenarios";
 
-// ── Types mapping to match existing dashboard expectations ──────────────────
+// ── Types ────────────────────────────────────────────────────────────────────
 
 export type StrategyType =
   | "Long Call"
@@ -109,13 +114,17 @@ export interface Scenario {
   holdingImpacts: Record<string, number>;
 }
 
-// ── Context Interface ────────────────────────────────────────────────────────
+// ── Context Interface ─────────────────────────────────────────────────────────
 
 interface PortfolioContextType {
+  // Core market state
   spotPrices: Record<string, number>;
   ivs: Record<string, number>;
   isTicking: boolean;
   setIsTicking: (ticking: boolean) => void;
+  priceDirections: Record<string, "up" | "down" | "flat">;
+
+  // Quant data
   holdings: StrategyHolding[];
   portfolioGreeks: PortfolioGreeks;
   greeksRadar: { axis: string; value: number; raw: number; color: string }[];
@@ -126,37 +135,82 @@ interface PortfolioContextType {
   meanPnl: number;
   expectedStdDev: number;
   narration: string[];
+
+  // Ticking controls
   manualTick: () => void;
   resetPortfolio: () => void;
-  priceDirections: Record<string, "up" | "down" | "flat">;
+
+  // Delta Hedger
+  hedgerState: DeltaHedgerState | null;
+  autoHedgeEnabled: boolean;
+  setAutoHedgeEnabled: (enabled: boolean) => void;
+  simulateHedge: () => void;
+  hedgeTolerance: number;
+  setHedgeTolerance: (v: number) => void;
+
+  // Historical Playback
+  playbackMode: boolean;
+  playbackScenarioId: string | null;
+  playbackFrameIndex: number;
+  playbackIsPlaying: boolean;
+  setPlaybackScenario: (id: string) => void;
+  stepPlayback: (delta: number) => void;
+  togglePlayback: () => void;
+  resetPlayback: () => void;
+  exitPlayback: () => void;
+
+  // AI Narration
+  aiNarrationLines: string[];
+  isNarrating: boolean;
+  requestAINarration: () => void;
 }
 
 const PortfolioContext = createContext<PortfolioContextType | undefined>(undefined);
 
-// ── Initial P&L baseline timeline ───────────────────────────────────────────
+// ── Baseline P&L Timeline ─────────────────────────────────────────────────────
+
 const BASELINE_PL_TIMELINE: PLPoint[] = [
   { date: "Apr 1",  pnl: 0,    cumulative: 0 },
   { date: "Apr 7",  pnl: 420,  cumulative: 420 },
   { date: "Apr 14", pnl: 380,  cumulative: 800 },
-  { date: "Apr 21", pnl: -640, cumulative: 160,  event: "Fed shock",  eventType: "crash" },
+  { date: "Apr 21", pnl: -640, cumulative: 160,  event: "Fed shock",     eventType: "crash" },
   { date: "Apr 28", pnl: 290,  cumulative: 450 },
   { date: "May 5",  pnl: 820,  cumulative: 1270, event: "AAPL earnings", eventType: "earnings" },
   { date: "May 12", pnl: -310, cumulative: 960 },
   { date: "May 19", pnl: 540,  cumulative: 1500 },
-  { date: "May 26", pnl: 480,  cumulative: 1980, event: "Vol spike", eventType: "spike" },
+  { date: "May 26", pnl: 480,  cumulative: 1980, event: "Vol spike",     eventType: "spike" },
 ];
 
+// ── Provider ──────────────────────────────────────────────────────────────────
+
 export function PortfolioProvider({ children }: { children: React.ReactNode }) {
+  // Core market state
   const [spotPrices, setSpotPrices] = useState<Record<string, number>>(INITIAL_SPOT_PRICES);
   const [ivs, setIvs] = useState<Record<string, number>>(INITIAL_IVS);
-  const [isTicking, setIsTicking] = useState<boolean>(false);
-  const [tickCount, setTickCount] = useState<number>(0);
+  const [isTicking, setIsTicking] = useState(false);
+  const [tickCount, setTickCount] = useState(0);
   const [priceDirections, setPriceDirections] = useState<Record<string, "up" | "down" | "flat">>({});
-
-  // Capture ticking P&L walk history
   const [tickingHistory, setTickingHistory] = useState<PLPoint[]>([]);
 
-  // Reset to initial baseline state
+  // Delta Hedger
+  const [autoHedgeEnabled, setAutoHedgeEnabled] = useState(false);
+  const [hedgeTolerance, setHedgeTolerance] = useState(50);
+  const [simulatedHedgeDelta, setSimulatedHedgeDelta] = useState(0);
+
+  // Historical Playback
+  const [playbackMode, setPlaybackMode] = useState(false);
+  const [playbackScenarioId, setPlaybackScenarioIdState] = useState<string | null>(null);
+  const [playbackFrameIndex, setPlaybackFrameIndex] = useState(0);
+  const [playbackIsPlaying, setPlaybackIsPlaying] = useState(false);
+  const playbackIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // AI Narration
+  const [aiNarrationLines, setAiNarrationLines] = useState<string[]>([]);
+  const [isNarrating, setIsNarrating] = useState(false);
+  const narrationTickRef = useRef(0);
+
+  // ── Reset ────────────────────────────────────────────────────────────────
+
   const resetPortfolio = useCallback(() => {
     setSpotPrices(INITIAL_SPOT_PRICES);
     setIvs(INITIAL_IVS);
@@ -164,56 +218,127 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     setTickCount(0);
     setTickingHistory([]);
     setPriceDirections({});
+    setSimulatedHedgeDelta(0);
   }, []);
 
-  // Performs a single ticking step (random walk walk)
+  // ── Ticking Engine ───────────────────────────────────────────────────────
+
   const manualTick = useCallback(() => {
-    setSpotPrices((prevSpot) => {
-      const nextSpot = { ...prevSpot };
-      const nextDirs: Record<string, "up" | "down" | "flat"> = {};
-
-      Object.keys(nextSpot).forEach((ticker) => {
-        const change = 1 + (Math.random() - 0.5) * 0.005; // Small random move ±0.25%
-        const prevVal = nextSpot[ticker];
-        const nextVal = Math.round(prevVal * change * 100) / 100;
-        nextSpot[ticker] = nextVal;
-
-        if (nextVal > prevVal) nextDirs[ticker] = "up";
-        else if (nextVal < prevVal) nextDirs[ticker] = "down";
-        else nextDirs[ticker] = "flat";
+    if (playbackMode) return; // Don't tick during playback
+    setSpotPrices((prev) => {
+      const next = { ...prev };
+      const dirs: Record<string, "up" | "down" | "flat"> = {};
+      Object.keys(next).forEach((t) => {
+        const change = 1 + (Math.random() - 0.5) * 0.005;
+        const prev2 = next[t];
+        const val = Math.round(prev2 * change * 100) / 100;
+        next[t] = val;
+        dirs[t] = val > prev2 ? "up" : val < prev2 ? "down" : "flat";
       });
-
-      setPriceDirections(nextDirs);
-      return nextSpot;
+      setPriceDirections(dirs);
+      return next;
     });
-
-    setIvs((prevIvs) => {
-      const nextIvs = { ...prevIvs };
-      Object.keys(nextIvs).forEach((ticker) => {
-        const change = 1 + (Math.random() - 0.5) * 0.015; // Fluctuate IV ±0.75%
-        nextIvs[ticker] = Math.max(0.05, Math.min(1.5, Math.round(prevIvs[ticker] * change * 1000) / 1000));
+    setIvs((prev) => {
+      const next = { ...prev };
+      Object.keys(next).forEach((t) => {
+        const change = 1 + (Math.random() - 0.5) * 0.015;
+        next[t] = Math.max(0.05, Math.min(1.5, Math.round(prev[t] * change * 1000) / 1000));
       });
-      return nextIvs;
+      return next;
     });
+    setTickCount((c) => c + 1);
+  }, [playbackMode]);
 
-    setTickCount((prev) => prev + 1);
+  useEffect(() => {
+    if (!isTicking || playbackMode) return;
+    const id = setInterval(manualTick, 1500);
+    return () => clearInterval(id);
+  }, [isTicking, manualTick, playbackMode]);
+
+  // ── Historical Playback ──────────────────────────────────────────────────
+
+  const applyPlaybackFrame = useCallback((scenario: HistoricalScenario, idx: number) => {
+    const frame = scenario.frames[idx];
+    if (!frame) return;
+    setSpotPrices({ ...frame.spotPrices });
+    setIvs({ ...frame.ivs });
+    setPriceDirections({});
+    setTickCount((c) => c + 1);
   }, []);
 
-  // Background interval for ticking simulation
-  useEffect(() => {
-    if (!isTicking) return;
-    const interval = setInterval(() => {
-      manualTick();
-    }, 1500);
-    return () => clearInterval(interval);
-  }, [isTicking, manualTick]);
+  const setPlaybackScenario = useCallback((id: string) => {
+    const scenario = HISTORICAL_SCENARIOS.find((s) => s.id === id);
+    if (!scenario) return;
+    setPlaybackScenarioIdState(id);
+    setPlaybackFrameIndex(0);
+    setPlaybackMode(true);
+    setPlaybackIsPlaying(false);
+    setIsTicking(false);
+    applyPlaybackFrame(scenario, 0);
+  }, [applyPlaybackFrame]);
 
-  // Recalculate portfolio parameters dynamically based on current spotPrices and ivs
+  const stepPlayback = useCallback((delta: number) => {
+    const scenario = HISTORICAL_SCENARIOS.find((s) => s.id === playbackScenarioId);
+    if (!scenario) return;
+    setPlaybackFrameIndex((prev) => {
+      const next = Math.max(0, Math.min(scenario.frames.length - 1, prev + delta));
+      applyPlaybackFrame(scenario, next);
+      return next;
+    });
+  }, [playbackScenarioId, applyPlaybackFrame]);
+
+  const togglePlayback = useCallback(() => {
+    setPlaybackIsPlaying((prev) => !prev);
+  }, []);
+
+  const resetPlayback = useCallback(() => {
+    const scenario = HISTORICAL_SCENARIOS.find((s) => s.id === playbackScenarioId);
+    if (!scenario) return;
+    setPlaybackFrameIndex(0);
+    setPlaybackIsPlaying(false);
+    applyPlaybackFrame(scenario, 0);
+  }, [playbackScenarioId, applyPlaybackFrame]);
+
+  const exitPlayback = useCallback(() => {
+    setPlaybackMode(false);
+    setPlaybackIsPlaying(false);
+    setPlaybackScenarioIdState(null);
+    setPlaybackFrameIndex(0);
+    resetPortfolio();
+  }, [resetPortfolio]);
+
+  // Playback auto-advance interval
+  useEffect(() => {
+    if (playbackIntervalRef.current) {
+      clearInterval(playbackIntervalRef.current);
+      playbackIntervalRef.current = null;
+    }
+    if (!playbackIsPlaying || !playbackScenarioId) return;
+    const scenario = HISTORICAL_SCENARIOS.find((s) => s.id === playbackScenarioId);
+    if (!scenario) return;
+
+    playbackIntervalRef.current = setInterval(() => {
+      setPlaybackFrameIndex((prev) => {
+        const next = prev + 1;
+        if (next >= scenario.frames.length) {
+          setPlaybackIsPlaying(false);
+          return prev;
+        }
+        applyPlaybackFrame(scenario, next);
+        return next;
+      });
+    }, 1200);
+
+    return () => {
+      if (playbackIntervalRef.current) clearInterval(playbackIntervalRef.current);
+    };
+  }, [playbackIsPlaying, playbackScenarioId, applyPlaybackFrame]);
+
+  // ── Quant Calculations ───────────────────────────────────────────────────
+
   const quantData = useMemo(() => {
-    // 1. Group positions into strategies using our quant library
     const strategyGroups = groupPositionsIntoStrategies(RAW_LEGS, spotPrices, ivs);
 
-    // 2. Map groups to Holdings structure expected by dashboard
     const holdings: StrategyHolding[] = strategyGroups.map((g) => ({
       id: g.id,
       ticker: g.ticker,
@@ -238,15 +363,12 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       color: g.color,
     }));
 
-    // 3. Compute net metrics
-    const totalCost = strategyGroups.reduce((sum, g) => sum + Math.abs(g.costBasis), 0);
-    const netPnl = strategyGroups.reduce((sum, g) => sum + g.pnl, 0);
-
-    const totalDelta = strategyGroups.reduce((sum, g) => sum + g.greeks.delta, 0);
-    const totalGamma = strategyGroups.reduce((sum, g) => sum + g.greeks.gamma, 0);
-    const totalTheta = strategyGroups.reduce((sum, g) => sum + g.greeks.theta, 0);
-    const totalVega = strategyGroups.reduce((sum, g) => sum + g.greeks.vega, 0);
-
+    const totalCost = strategyGroups.reduce((s, g) => s + Math.abs(g.costBasis), 0);
+    const netPnl = strategyGroups.reduce((s, g) => s + g.pnl, 0);
+    const totalDelta = strategyGroups.reduce((s, g) => s + g.greeks.delta, 0) + simulatedHedgeDelta;
+    const totalGamma = strategyGroups.reduce((s, g) => s + g.greeks.gamma, 0);
+    const totalTheta = strategyGroups.reduce((s, g) => s + g.greeks.theta, 0);
+    const totalVega = strategyGroups.reduce((s, g) => s + g.greeks.vega, 0);
     const activeIvs = Object.values(ivs);
     const avgIV = Math.round((activeIvs.reduce((a, b) => a + b, 0) / activeIvs.length) * 1000) / 10;
 
@@ -262,28 +384,19 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       maxRisk: 8200,
     };
 
-    // 4. Normalized Greeks Radar (relative scaling to fit within 0-100 radar domain)
     const greeksRadar = [
       { axis: "Delta", value: Math.min(100, Math.max(0, 50 + (portfolioGreeks.totalDelta / 200) * 50)), raw: portfolioGreeks.totalDelta, color: "#00d4ff" },
-      { axis: "Gamma", value: Math.min(100, Math.max(0, Math.abs(portfolioGreeks.totalGamma) * 1500)), raw: portfolioGreeks.totalGamma, color: "#a855f7" },
+      { axis: "Gamma", value: Math.min(100, Math.max(0, Math.abs(portfolioGreeks.totalGamma) * 1500)),  raw: portfolioGreeks.totalGamma, color: "#a855f7" },
       { axis: "Theta", value: Math.min(100, Math.max(0, (Math.abs(portfolioGreeks.totalTheta) / 300) * 100)), raw: portfolioGreeks.totalTheta, color: "#ff4d6a" },
-      { axis: "Vega",  value: Math.min(100, Math.max(0, (Math.abs(portfolioGreeks.totalVega) / 400) * 100)), raw: portfolioGreeks.totalVega, color: "#00e5a0" },
+      { axis: "Vega",  value: Math.min(100, Math.max(0, (Math.abs(portfolioGreeks.totalVega) / 400) * 100)),  raw: portfolioGreeks.totalVega, color: "#00e5a0" },
       { axis: "Risk",  value: 41, raw: 41, color: "#f5a623" },
     ];
 
-    // 5. Roll up dynamic exposure segments
     const exposureSegments: ExposureSegment[] = rollupExposureByBias(strategyGroups).map((s) => ({
-      id: s.id,
-      label: s.label,
-      value: s.value,
-      pct: s.pct,
-      color: s.color,
-      glowColor: s.glowColor,
-      description: s.description,
-      strategies: s.strategies,
+      id: s.id, label: s.label, value: s.value, pct: s.pct,
+      color: s.color, glowColor: s.glowColor, description: s.description, strategies: s.strategies,
     }));
 
-    // 6. Macro scenarios pricing shocks
     const stressResults = runDeterministicScenarios(strategyGroups, spotPrices, spotPrices);
     const iconMap: Record<string, string> = { crash: "💥", vol_spike: "⚡", earnings: "📊", sideways: "→" };
     const colorMap: Record<string, string> = { crash: "#ff4d6a", vol_spike: "#a855f7", earnings: "#f5a623", sideways: "#00d4ff" };
@@ -297,28 +410,19 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     const scenarios: Scenario[] = stressResults.map((r) => {
       const holdingImpacts: Record<string, number> = {};
       strategyGroups.forEach((g, idx) => {
-        const mockHoldingId = `h${idx + 1}`;
-        holdingImpacts[mockHoldingId] = r.holdingImpacts[g.id] ?? 0;
+        holdingImpacts[`h${idx + 1}`] = r.holdingImpacts[g.id] ?? 0;
       });
-
       return {
-        id: r.id,
-        label: r.label,
-        description: r.description,
-        color: colorMap[r.id] || "#00d4ff",
-        icon: iconMap[r.id] || "→",
+        id: r.id, label: r.label, description: r.description,
+        color: colorMap[r.id] || "#00d4ff", icon: iconMap[r.id] || "→",
         assumptions: assumptionsMap[r.id] || "",
         pnlImpact: Math.round(r.pnlImpact),
-        ivChange: r.ivChange,
-        spotChange: r.spotChange,
-        holdingImpacts,
+        ivChange: r.ivChange, spotChange: r.spotChange, holdingImpacts,
       };
     });
 
-    // 7. Value at Risk Monte Carlo Simulation (using our runPortfolioMonteCarlo)
-    const mcResult = runPortfolioMonteCarlo(strategyGroups, spotPrices, ivs, 10, 500); // 500 paths for fast UI updates
+    const mcResult = runPortfolioMonteCarlo(strategyGroups, spotPrices, ivs, 10, 500);
 
-    // 8. Generate dynamic narration logs
     const dirExposure = computeDirectionalExposure(strategyGroups, spotPrices, totalCost);
     const volExposure = computeVolatilityExposure(strategyGroups);
     const convMapping = computeConvexityMapping(strategyGroups, spotPrices);
@@ -327,72 +431,117 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     const narration = generatePortfolioNarration({
       holdingsCount: strategyGroups.length,
       assetsCount: Object.keys(spotPrices).length,
-      netGreeks: {
-        delta: totalDelta,
-        gamma: totalGamma,
-        theta: totalTheta,
-        vega: totalVega,
-        rho: 0,
-      },
-      dirExposure,
-      volExposure,
-      convMapping,
-      topology,
+      netGreeks: { delta: totalDelta, gamma: totalGamma, theta: totalTheta, vega: totalVega, rho: 0 },
+      dirExposure, volExposure, convMapping, topology,
     });
 
-    return {
-      holdings,
-      portfolioGreeks,
-      greeksRadar,
-      exposureSegments,
-      scenarios,
-      varMetrics: mcResult.varMetrics,
-      meanPnl: mcResult.meanPnl,
-      expectedStdDev: mcResult.expectedStdDev,
-      narration,
-    };
-  }, [spotPrices, ivs]);
+    return { holdings, portfolioGreeks, greeksRadar, exposureSegments, scenarios, varMetrics: mcResult.varMetrics, meanPnl: mcResult.meanPnl, expectedStdDev: mcResult.expectedStdDev, narration };
+  }, [spotPrices, ivs, simulatedHedgeDelta]);
 
-  // Keep historical ticking timeline updated
+  // ── Delta Hedger ─────────────────────────────────────────────────────────
+
+  const hedgerState = useMemo<DeltaHedgerState>(() =>
+    computeHedgeSignal(
+      quantData.portfolioGreeks.totalDelta,
+      spotPrices,
+      -hedgeTolerance,
+      hedgeTolerance,
+    ),
+    [quantData.portfolioGreeks.totalDelta, spotPrices, hedgeTolerance]
+  );
+
+  const simulateHedge = useCallback(() => {
+    if (!hedgerState.recommendation) return;
+    setSimulatedHedgeDelta((prev) => prev + hedgerState.recommendation!.deltaOffset);
+  }, [hedgerState]);
+
+  // Auto-hedge: apply when enabled and ticking
   useEffect(() => {
-    if (tickCount === 0) {
-      setTickingHistory([]);
-      return;
+    if (!autoHedgeEnabled || !hedgerState.recommendation || !isTicking) return;
+    if (hedgerState.severity === "critical" || hedgerState.severity === "warning") {
+      setSimulatedHedgeDelta((prev) => prev + hedgerState.recommendation!.deltaOffset * 0.5);
     }
+  }, [tickCount, autoHedgeEnabled, hedgerState, isTicking]);
 
+  // ── P&L Timeline ─────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    if (tickCount === 0) { setTickingHistory([]); return; }
     setTickingHistory((prev) => {
-      // Limit walk list to the last 15 ticks to avoid cluttering charts
       const next = [...prev];
-      if (next.length >= 15) {
-        next.shift();
-      }
-      
+      if (next.length >= 15) next.shift();
       const lastVal = next[next.length - 1]?.cumulative ?? BASELINE_PL_TIMELINE[BASELINE_PL_TIMELINE.length - 1].cumulative;
-      const netPnl = quantData.portfolioGreeks.netPnl;
-      const tickLabel = `T+${tickCount}`;
-
       next.push({
-        date: tickLabel,
-        pnl: Math.round(netPnl - lastVal),
-        cumulative: Math.round(netPnl),
+        date: `T+${tickCount}`,
+        pnl: Math.round(quantData.portfolioGreeks.netPnl - lastVal),
+        cumulative: Math.round(quantData.portfolioGreeks.netPnl),
       });
-
       return next;
     });
   }, [tickCount, quantData.portfolioGreeks.netPnl]);
 
-  // Merge baseline timeline with live ticking walk
-  const plTimeline = useMemo(() => {
-    return [...BASELINE_PL_TIMELINE, ...tickingHistory];
-  }, [tickingHistory]);
+  const plTimeline = useMemo(() =>
+    [...BASELINE_PL_TIMELINE, ...tickingHistory],
+    [tickingHistory]
+  );
+
+  // ── AI Narration ─────────────────────────────────────────────────────────
+
+  const requestAINarration = useCallback(async () => {
+    if (isNarrating) return;
+    setIsNarrating(true);
+    try {
+      const activeScenario = HISTORICAL_SCENARIOS.find((s) => s.id === playbackScenarioId);
+      const payload = {
+        totalDelta: quantData.portfolioGreeks.totalDelta,
+        totalGamma: quantData.portfolioGreeks.totalGamma,
+        totalTheta: quantData.portfolioGreeks.totalTheta,
+        totalVega: quantData.portfolioGreeks.totalVega,
+        netPnl: quantData.portfolioGreeks.netPnl,
+        avgIV: quantData.portfolioGreeks.avgIV,
+        var95: quantData.varMetrics.var95,
+        var99: quantData.varMetrics.var99,
+        cvar: quantData.varMetrics.cvar99,
+        isTicking,
+        playbackMode,
+        scenarioName: activeScenario?.name,
+      };
+      const res = await fetch("/api/narrate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (data.narration) {
+        setAiNarrationLines((prev) => {
+          const lines = data.narration
+            .split(/\n+/)
+            .map((l: string) => l.trim())
+            .filter(Boolean);
+          return [...prev, ...lines].slice(-40); // cap at 40 AI lines
+        });
+      }
+    } catch {
+      setAiNarrationLines((prev) => [...prev, "[AI] Connection error — narration engine offline."]);
+    } finally {
+      setIsNarrating(false);
+    }
+  }, [isNarrating, quantData, isTicking, playbackMode, playbackScenarioId]);
+
+  // Auto-narrate every 10 ticks while ticking
+  useEffect(() => {
+    narrationTickRef.current += 1;
+    if (narrationTickRef.current % 10 === 0 && isTicking) {
+      requestAINarration();
+    }
+  }, [tickCount]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Context Value ─────────────────────────────────────────────────────────
 
   return (
     <PortfolioContext.Provider
       value={{
-        spotPrices,
-        ivs,
-        isTicking,
-        setIsTicking,
+        spotPrices, ivs, isTicking, setIsTicking, priceDirections,
         holdings: quantData.holdings,
         portfolioGreeks: quantData.portfolioGreeks,
         greeksRadar: quantData.greeksRadar,
@@ -403,9 +552,13 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
         meanPnl: quantData.meanPnl,
         expectedStdDev: quantData.expectedStdDev,
         narration: quantData.narration,
-        manualTick,
-        resetPortfolio,
-        priceDirections,
+        manualTick, resetPortfolio,
+        hedgerState, autoHedgeEnabled, setAutoHedgeEnabled,
+        simulateHedge, hedgeTolerance, setHedgeTolerance,
+        playbackMode, playbackScenarioId, playbackFrameIndex,
+        playbackIsPlaying, setPlaybackScenario, stepPlayback,
+        togglePlayback, resetPlayback, exitPlayback,
+        aiNarrationLines, isNarrating, requestAINarration,
       }}
     >
       {children}
@@ -415,8 +568,6 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
 
 export function usePortfolio() {
   const context = useContext(PortfolioContext);
-  if (!context) {
-    throw new Error("usePortfolio must be used within a PortfolioProvider");
-  }
+  if (!context) throw new Error("usePortfolio must be used within a PortfolioProvider");
   return context;
 }
