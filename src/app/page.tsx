@@ -1,11 +1,11 @@
 // ============================================================================
-// OPTIXFLOW — Interactive Cinematic Landing Page
-// Quant-terminal aesthetic (Bloomberg Terminal × Interstellar × Quant Lab)
+// OPTIXFLOW — Interactive Officevibe Light Theme Landing Page
+// Balanced, corporate, trustworthy layout with Brand Electric accents.
 // ============================================================================
 
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useState } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import {
@@ -13,7 +13,6 @@ import {
   BarChart2,
   Cpu,
   Layers,
-  BookOpen,
   ChevronRight,
   Activity,
   ArrowRight,
@@ -21,7 +20,8 @@ import {
   Zap,
   Globe,
   Sliders,
-  Terminal
+  Terminal,
+  Mail
 } from "lucide-react";
 
 import { PortfolioProvider } from "@/components/portfolio/PortfolioContext";
@@ -30,302 +30,220 @@ import DeltaHedger from "@/components/portfolio/DeltaHedger";
 import PortfolioConsole from "@/components/portfolio/PortfolioConsole";
 import MarketPlayback from "@/components/portfolio/MarketPlayback";
 
-interface Particle {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  size: number;
-  color: string;
-  alpha: number;
-}
-
 export default function LandingPage() {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [activeTab, setActiveTab] = useState<"lab" | "analytics" | "intel">("intel");
+  const [activeTab, setActiveTab] = useState<"intel" | "lab" | "analytics">("intel");
+  const [email, setEmail] = useState("");
 
-  // Atmospheric Background Canvas
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    let animationFrameId: number;
-    let particles: Particle[] = [];
-    const maxParticles = 90;
-
-    const handleResize = () => {
-      if (!canvas) return;
-      canvas.width = canvas.parentElement?.clientWidth || window.innerWidth;
-      canvas.height = canvas.parentElement?.clientHeight || window.innerHeight;
-    };
-
-    window.addEventListener("resize", handleResize);
-    handleResize();
-
-    const colors = [
-      "rgba(6, 182, 212, 0.25)", // Cyan
-      "rgba(16, 185, 129, 0.15)", // Emerald
-      "rgba(168, 85, 247, 0.2)",  // Purple
-      "rgba(251, 146, 60, 0.1)"   // Amber
-    ];
-
-    // Generate particles
-    for (let i = 0; i < maxParticles; i++) {
-      particles.push({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height,
-        vx: (Math.random() - 0.5) * 0.4,
-        vy: (Math.random() - 0.5) * 0.15,
-        size: Math.random() * 2 + 0.5,
-        color: colors[Math.floor(Math.random() * colors.length)],
-        alpha: Math.random() * 0.4 + 0.1
-      });
-    }
-
-    const render = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      // Draw particle flow
-      particles.forEach((p) => {
-        p.x += p.vx;
-        p.y += p.vy;
-
-        if (p.x < 0) p.x = canvas.width;
-        if (p.x > canvas.width) p.x = 0;
-        if (p.y < 0) p.y = canvas.height;
-        if (p.y > canvas.height) p.y = 0;
-
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        ctx.fillStyle = p.color;
-        ctx.fill();
-      });
-
-      // Draw subtle grid lines
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.015)";
-      ctx.lineWidth = 0.5;
-      const step = 80;
-      for (let x = 0; x < canvas.width; x += step) {
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, canvas.height);
-        ctx.stroke();
-      }
-      for (let y = 0; y < canvas.height; y += step) {
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(canvas.width, y);
-        ctx.stroke();
-      }
-
-      animationFrameId = requestAnimationFrame(render);
-    };
-
-    render();
-
-    return () => {
-      window.removeEventListener("resize", handleResize);
-      cancelAnimationFrame(animationFrameId);
-    };
-  }, []);
+  const handleSubscribe = (e: React.FormEvent) => {
+    e.preventDefault();
+    alert(`Subscribed: ${email}`);
+    setEmail("");
+  };
 
   return (
-    <div className="min-h-screen bg-[#020408] text-[var(--ox-text-primary)] font-sans relative overflow-x-hidden select-none">
+    <div className="min-h-screen bg-[#f9f8f6] text-[#171417] font-sans selection:bg-[#d9d4ff] selection:text-[#0c1754] overflow-x-hidden">
       
-      {/* Interactive Background Canvas */}
-      <canvas
-        ref={canvasRef}
-        className="absolute inset-0 w-full h-full z-0 pointer-events-none"
-      />
-
-      {/* Floating telemetry mesh elements */}
-      <div className="absolute top-1/4 left-10 w-96 h-96 opacity-[0.01] pointer-events-none z-0">
-        <svg viewBox="0 0 100 100" className="w-full h-full animate-spin-slow">
-          <circle cx="50" cy="50" r="45" fill="none" stroke="#fff" strokeWidth="0.5" strokeDasharray="3 3" />
-          <circle cx="50" cy="50" r="30" fill="none" stroke="#fff" strokeWidth="0.2" />
-        </svg>
-      </div>
-      
-      <div className="absolute bottom-10 right-10 w-96 h-96 opacity-[0.01] pointer-events-none z-0">
-        <svg viewBox="0 0 100 100" className="w-full h-full animate-spin-reverse-slow">
-          <circle cx="50" cy="50" r="40" fill="none" stroke="#fff" strokeWidth="0.5" strokeDasharray="5 5" />
-          <circle cx="50" cy="50" r="20" fill="none" stroke="#fff" strokeWidth="0.3" />
-        </svg>
-      </div>
-
-      {/* Navigation Header */}
-      <header className="border-b border-white/5 bg-[#03060c]/50 backdrop-blur-md sticky top-0 z-50 px-6 py-4 flex items-center justify-between font-mono text-[11px]">
+      {/* 1. Header (Sticky Top Bar) */}
+      <header className="sticky top-0 z-50 bg-[#f9f8f6]/90 backdrop-blur-md border-b border-[#eaebf8] py-4 px-6 md:px-12 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="shrink-0 w-7 h-7 rounded-md bg-[var(--ox-accent-cyan-dim)] border border-[var(--ox-accent-cyan)]/30 flex items-center justify-center glow-cyan">
-            <Zap size={13} className="text-[var(--ox-accent-cyan)] animate-pulse" />
+          <div className="shrink-0 w-7 h-7 rounded-md bg-[#2545ff]/10 border border-[#2545ff]/20 flex items-center justify-center">
+            <Zap size={14} className="text-[#2545ff]" />
           </div>
-          <span className="text-sm font-bold tracking-tight text-white">
-            Optix<span className="text-[var(--ox-accent-cyan)]">Flow</span>
+          <span className="text-base font-bold tracking-tight text-[#0c1754]">
+            Optix<span className="text-[#2545ff] font-medium">Flow</span>
           </span>
-          <span className="text-white/10">|</span>
-          <span className="text-white/40 tracking-wider">DERIVATIVES COGNITION ENGINE</span>
+          <span className="text-[#eaebf8] hidden sm:inline">|</span>
+          <span className="text-[#0c1754]/50 text-[10px] font-mono tracking-wider uppercase hidden sm:inline">
+            DERIVATIVES COGNITION ENGINE
+          </span>
         </div>
 
-        <nav className="hidden md:flex items-center gap-6 text-white/50">
-          <Link href="/strategy" className="hover:text-white transition-colors">STRATEGY LAB</Link>
-          <Link href="/analytics" className="hover:text-white transition-colors">ANALYTICS</Link>
-          <Link href="/intelligence" className="hover:text-white transition-colors">TRADE INTEL</Link>
-          <Link href="/portfolio" className="hover:text-white transition-colors">PORTFOLIO</Link>
-          <Link href="/playbook" className="hover:text-white transition-colors">PLAYBOOK</Link>
+        <nav className="hidden lg:flex items-center gap-8">
+          <Link href="/strategy" className="text-[#222222] hover:text-[#2545ff] font-medium text-sm transition-colors uppercase tracking-wider">
+            STRATEGY LAB
+          </Link>
+          <Link href="/analytics" className="text-[#222222] hover:text-[#2545ff] font-medium text-sm transition-colors uppercase tracking-wider">
+            ANALYTICS
+          </Link>
+          <Link href="/intelligence" className="text-[#222222] hover:text-[#2545ff] font-medium text-sm transition-colors uppercase tracking-wider">
+            TRADE INTEL
+          </Link>
+          <Link href="/portfolio" className="text-[#222222] hover:text-[#2545ff] font-medium text-sm transition-colors uppercase tracking-wider">
+            PORTFOLIO
+          </Link>
+          <Link href="/playbook" className="text-[#222222] hover:text-[#2545ff] font-medium text-sm transition-colors uppercase tracking-wider">
+            PLAYBOOK
+          </Link>
         </nav>
 
         <div>
           <Link
             href="/strategy"
-            className="border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 px-4 py-2 rounded-xl text-cyan-400 font-bold transition-all hover:shadow-[0_0_15px_rgba(6,182,212,0.15)] cursor-pointer"
+            className="inline-block bg-[#2545ff] text-white hover:bg-[#1a3aff] text-sm font-medium py-[11.2px] px-[32px] rounded-[100px] transition-all cursor-pointer text-center"
           >
             ENTER PLATFORM
           </Link>
         </div>
       </header>
 
-      {/* Section 1: Hero Cinematic Intro */}
-      <section className="relative z-10 max-w-7xl mx-auto px-6 pt-20 pb-16 flex flex-col items-center text-center">
+      {/* 2. Hero Section (Split Screen) */}
+      <section className="max-w-7xl mx-auto px-6 md:px-12 py-16 grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
         
-        {/* Glowing badge */}
-        <motion.div
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="border border-white/5 bg-white/2 rounded-full px-4 py-1.5 mb-6 flex items-center gap-2 font-mono text-[9.5px] text-white/50 tracking-wider"
-        >
-          <Activity size={10} className="text-cyan-400 animate-pulse" />
-          <span>PRODUCTION SYSTEMS FULLY CALIBRATED</span>
-        </motion.div>
+        {/* Hero Left: Headline and CTA */}
+        <div className="flex flex-col items-start text-left">
+          
+          {/* Informative Badge */}
+          <div className="bg-[#eaebf8] text-[#0c1754] rounded-[16px] py-[4px] px-[12px] font-sans font-medium text-[12px] tracking-wide inline-flex items-center gap-1.5 mb-6">
+            <Activity size={12} className="text-[#2545ff]" />
+            <span>PRODUCTION SYSTEMS OPERATIONAL</span>
+          </div>
 
-        {/* Hero Title */}
-        <motion.h1
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.1 }}
-          className="text-4xl md:text-6xl font-extrabold tracking-tight text-white leading-tight max-w-4xl"
-        >
-          A Market Cognition System for Understanding <span className="bg-gradient-to-r from-cyan-400 via-emerald-400 to-purple-400 bg-clip-text text-transparent">Derivatives Behavior.</span>
-        </motion.h1>
-
-        {/* Hero Subtitle */}
-        <motion.p
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.25 }}
-          className="text-white/60 text-sm md:text-base max-w-2xl mt-6 leading-relaxed"
-        >
-          OptixFlow transforms options strategy design into a reality-aware spatial environment. 
-          Interpret skew, model dynamic risk, stress-test positions under volatility regimes, 
-          and map your market thesis to optimal structural geometry.
-        </motion.p>
-
-        {/* CTAs */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.4 }}
-          className="mt-10 flex flex-wrap justify-center gap-4"
-        >
-          <Link
-            href="/intelligence"
-            className="border border-cyan-500/40 bg-cyan-500/10 text-cyan-400 font-bold px-7 py-3.5 rounded-xl hover:bg-cyan-500/20 transition-all flex items-center gap-2 hover:shadow-[0_0_20px_rgba(6,182,212,0.2)] cursor-pointer"
+          {/* Headline - Abcfavoritvariable style with Martinaplantijn calligraphic accent */}
+          <h1 
+            style={{ fontFamily: "Arial, sans-serif", lineHeight: "1.0" }} 
+            className="text-[44px] md:text-[56px] lg:text-[64px] font-medium tracking-[-3.2px] text-[#0c1754]"
           >
-            <span>ENTER INTEL COCKPIT</span>
-            <ArrowRight size={14} />
-          </Link>
-          <Link
-            href="/strategy"
-            className="border border-white/10 hover:border-white/20 bg-white/3 hover:bg-white/5 text-white/80 px-7 py-3.5 rounded-xl transition-all cursor-pointer"
-          >
-            LAUNCH STRATEGY LAB
-          </Link>
-        </motion.div>
+            The future of risk, mapped in <span style={{ fontFamily: "Georgia, serif" }} className="italic font-normal text-[#2545ff] pl-1 pr-2">real-time</span>.
+          </h1>
 
-        {/* Live HUD telemetry ticker */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 1, delay: 0.6 }}
-          className="mt-16 w-full border border-white/5 bg-[#05070c]/60 backdrop-blur rounded-2xl p-4.5 font-mono text-[9px] text-white/35 grid grid-cols-2 md:grid-cols-4 gap-4 text-left"
-        >
-          <div>
-            <span className="block text-[8px] uppercase tracking-wider text-white/20 mb-0.5">Asset Reference</span>
-            <span className="text-white font-bold text-xs flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> SPY Index
-            </span>
+          {/* Subtitle - Inter style */}
+          <p className="text-[#171417] text-[16px] leading-[1.60] max-w-xl mt-6">
+            OptixFlow transforms options strategy design into a reality-aware spatial environment. 
+            Interpret skew, model dynamic risk, stress-test positions under volatility regimes, 
+            and map your market thesis to optimal structural geometry.
+          </p>
+
+          {/* CTAs */}
+          <div className="mt-8 flex flex-wrap gap-4">
+            <Link
+              href="/intelligence"
+              className="bg-[#2545ff] text-white hover:bg-[#1a3aff] text-sm font-medium py-[11.2px] px-[32px] rounded-[100px] transition-all flex items-center gap-2 cursor-pointer text-center"
+            >
+              <span>Initialize Console</span>
+              <ArrowRight size={14} />
+            </Link>
+            <Link
+              href="/strategy"
+              className="bg-transparent text-[#2545ff] border border-[#2545ff] hover:bg-[#2545ff]/5 text-sm font-medium py-[11.2px] px-[32px] rounded-[100px] transition-all cursor-pointer text-center"
+            >
+              Open Strategy Lab
+            </Link>
           </div>
-          <div>
-            <span className="block text-[8px] uppercase tracking-wider text-white/20 mb-0.5">Scoring Model</span>
-            <span className="text-cyan-400 font-bold text-xs uppercase">Black-Scholes analytical</span>
+
+          {/* Telemetry Dashboard Stats */}
+          <div className="mt-12 w-full border border-[#eaebf8] bg-white rounded-[16px] p-4.5 font-mono text-[10px] text-[#222222] grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div>
+              <span className="block text-[8px] uppercase tracking-wider text-[#0c1754]/50 mb-0.5">Asset Reference</span>
+              <span className="text-[#0c1754] font-bold text-[11px] flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#ffc13a]" /> SPY Index
+              </span>
+            </div>
+            <div>
+              <span className="block text-[8px] uppercase tracking-wider text-[#0c1754]/50 mb-0.5">Scoring Model</span>
+              <span className="text-[#2545ff] font-bold text-[11px] uppercase">Black-Scholes</span>
+            </div>
+            <div>
+              <span className="block text-[8px] uppercase tracking-wider text-[#0c1754]/50 mb-0.5">Diagnostics</span>
+              <span className="text-[#0c1754] font-bold text-[11px]">Suitability V3</span>
+            </div>
+            <div>
+              <span className="block text-[8px] uppercase tracking-wider text-[#0c1754]/50 mb-0.5">Theme System</span>
+              <span className="text-[#ff5b22] font-bold text-[11px] uppercase">Officevibe light</span>
+            </div>
           </div>
-          <div>
-            <span className="block text-[8px] uppercase tracking-wider text-white/20 mb-0.5">Volatility Diagnostics</span>
-            <span className="text-white font-bold text-xs">Regime Suitability V3</span>
+
+        </div>
+
+        {/* Hero Right: Product UI Illustration (3D Vol Surface) */}
+        <div className="w-full relative">
+          {/* Abstract background highlight */}
+          <div className="absolute inset-0 bg-gradient-to-tr from-[#2545ff]/5 to-[#eaebf8] rounded-[16px] filter blur-xl opacity-80 pointer-events-none" />
+          
+          {/* Card Container for Live 3D Surface */}
+          <div className="relative border border-[#eaebf8] bg-[#07090f] rounded-[16px] shadow-xl overflow-hidden self-stretch min-h-[380px] p-2 flex flex-col justify-center">
+            <PortfolioProvider>
+              <div className="w-full h-full">
+                <VolatilitySurface3D />
+              </div>
+            </PortfolioProvider>
           </div>
-          <div>
-            <span className="block text-[8px] uppercase tracking-wider text-white/20 mb-0.5">Render Engine</span>
-            <span className="text-purple-400 font-bold text-xs uppercase">Atmospheric Web GL / CSS</span>
-          </div>
-        </motion.div>
+        </div>
 
       </section>
 
-      {/* Section 2: Core Platform Systems Interactive Showcase */}
-      <section className="relative z-10 max-w-7xl mx-auto px-6 py-20 border-t border-white/5">
+      {/* 3. Core Modules Interactive Showcase (Section Gap 64px) */}
+      <section className="max-w-7xl mx-auto px-6 md:px-12 py-16 border-t border-[#eaebf8]">
+        
+        {/* Section Heading */}
         <div className="text-center mb-12">
-          <span className="text-[8.5px] uppercase tracking-widest text-cyan-400 font-bold font-mono">
-            System Modules
-          </span>
-          <h2 className="text-2xl md:text-3xl font-bold text-white mt-1">
-            Five Connected Cognition Systems
+          <div className="bg-[#eaebf8] text-[#0c1754] rounded-[16px] py-[4px] px-[12px] font-sans font-medium text-[12px] tracking-wide inline-flex items-center gap-1.5 mb-3">
+            <span>SYSTEM WORKSPACES</span>
+          </div>
+          <h2 
+            style={{ fontFamily: "Arial, sans-serif", letterSpacing: "-0.64px" }}
+            className="text-[32px] font-medium text-[#0c1754] leading-[1.1] mt-2"
+          >
+            Three Connected Cognition Systems
           </h2>
-          <p className="text-white/40 text-xs mt-2 max-w-lg mx-auto">
-            OptixFlow compartmentalizes raw market mechanics, portfolio diagnostic risk, and learning pathways into individual dashboards.
+          <p className="text-[#171417]/70 text-[14px] leading-[1.43] mt-3 max-w-lg mx-auto">
+            OptixFlow compartmentalizes option pricing theory, delta hedging dynamics, and real-time market regimes into accessible workspace profiles.
           </p>
         </div>
 
-        {/* Tab Controls */}
-        <div className="flex justify-center gap-2 mb-8 font-mono text-[10px]">
-          {(["intel", "lab", "analytics"] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 border rounded-xl cursor-pointer transition-all uppercase tracking-wider font-bold ${
-                activeTab === tab
-                  ? "bg-white/10 border-white/20 text-white shadow-lg"
-                  : "border-transparent text-white/40 hover:text-white/70"
-              }`}
-            >
-              {tab === "intel" ? "1. Trade Intelligence" : tab === "lab" ? "2. Strategy Lab" : "3. Analytics Lab"}
-            </button>
-          ))}
+        {/* Tab Controls (rounded pill bar) */}
+        <div className="flex justify-center mb-10">
+          <div className="bg-[#eaebf8] p-1.5 rounded-[100px] flex gap-1.5">
+            {(["intel", "lab", "analytics"] as const).map((tab) => {
+              const isActive = activeTab === tab;
+              const labels = {
+                intel: "1. Trade Intelligence",
+                lab: "2. Strategy Lab",
+                analytics: "3. Volatility Analytics"
+              };
+              return (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`px-6 py-2.5 rounded-[100px] text-xs font-semibold uppercase tracking-wider transition-all duration-300 cursor-pointer ${
+                    isActive
+                      ? "bg-[#2545ff] text-white shadow-md"
+                      : "text-[#222222] hover:text-[#2545ff]"
+                  }`}
+                >
+                  {labels[tab]}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        {/* Render Active Tab Mockup Showcase */}
-        <div className="border border-white/10 bg-[#05070c]/90 rounded-2xl shadow-2xl p-5 md:p-8 min-h-[400px] flex flex-col md:flex-row gap-8 items-center">
+        {/* Active Tab Showcase Render styled as a transparent/Soft Off-White Feature Card */}
+        <div className="border border-[#eaebf8] bg-white rounded-[16px] p-8 md:p-12 min-h-[460px] flex flex-col lg:flex-row gap-12 items-center">
           
-          {/* Mockup Left Side (Description) */}
-          <div className="flex-1 space-y-4">
+          {/* Showcase Left: Description */}
+          <div className="flex-1 space-y-4 text-left">
             {activeTab === "intel" && (
               <>
-                <div className="inline-flex items-center gap-1 text-[8.5px] font-mono border border-cyan-500/20 bg-cyan-500/5 px-2 py-0.5 rounded text-cyan-400">
-                  <Cpu size={10} /> ROUTE: /INTELLIGENCE
+                <div className="bg-[#eaebf8] text-[#0c1754] rounded-[16px] py-[4px] px-[12px] font-sans font-medium text-[11px] tracking-wide inline-flex items-center gap-1.5 mb-2">
+                  <Cpu size={12} className="text-[#2545ff]" />
+                  <span>ROUTE: /INTELLIGENCE</span>
                 </div>
-                <h3 className="text-xl font-bold text-white">Trade Intelligence Cockpit</h3>
-                <p className="text-white/60 text-xs leading-relaxed">
-                  The high-level intelligence center. Instead of recommending specific trades, it scores option payouts against a configured directional, volatility, and risk thesis. Features a spacecraft-style console, structural rankings, and a monospace risk telemetry log.
+                <h3 
+                  style={{ fontFamily: "Arial, sans-serif", letterSpacing: "-0.64px" }}
+                  className="text-[24px] font-medium text-[#0c1754] leading-[1.1]"
+                >
+                  Trade Intelligence Cockpit
+                </h3>
+                <p className="text-[#171417]/80 text-[14px] leading-[1.43]">
+                  The central diagnostics hub. OptixFlow validates and scores structured option layouts against a configurable directional, volatility, and timing thesis, producing live telemetry logs and risk narrative feeds.
                 </p>
                 <div className="pt-2">
                   <Link
                     href="/intelligence"
-                    className="inline-flex items-center gap-1.5 text-xs font-mono font-bold text-cyan-400 hover:text-cyan-300 transition-colors"
+                    className="inline-flex items-center gap-1 text-sm font-semibold text-[#2545ff] hover:underline"
                   >
-                    <span>Launch Intelligence Engine</span>
-                    <ChevronRight size={12} />
+                    <span>Launch Intelligence Console</span>
+                    <ChevronRight size={14} />
                   </Link>
                 </div>
               </>
@@ -333,20 +251,26 @@ export default function LandingPage() {
 
             {activeTab === "lab" && (
               <>
-                <div className="inline-flex items-center gap-1 text-[8.5px] font-mono border border-emerald-500/20 bg-emerald-500/5 px-2 py-0.5 rounded text-emerald-400">
-                  <Sliders size={10} /> ROUTE: /STRATEGY
+                <div className="bg-[#eaebf8] text-[#0c1754] rounded-[16px] py-[4px] px-[12px] font-sans font-medium text-[11px] tracking-wide inline-flex items-center gap-1.5 mb-2">
+                  <Sliders size={12} className="text-[#2545ff]" />
+                  <span>ROUTE: /STRATEGY</span>
                 </div>
-                <h3 className="text-xl font-bold text-white">Strategy Lab Sandbox</h3>
-                <p className="text-white/60 text-xs leading-relaxed">
+                <h3 
+                  style={{ fontFamily: "Arial, sans-serif", letterSpacing: "-0.64px" }}
+                  className="text-[24px] font-medium text-[#0c1754] leading-[1.1]"
+                >
+                  Strategy Lab Sandbox
+                </h3>
+                <p className="text-[#171417]/80 text-[14px] leading-[1.43]">
                   Experiment with complex multi-leg synthetic options structures. Set strike ranges, view dynamic Greek distributions, model risk parameters, and evaluate structural resilience scores against ticking market realities.
                 </p>
                 <div className="pt-2">
                   <Link
                     href="/strategy"
-                    className="inline-flex items-center gap-1.5 text-xs font-mono font-bold text-emerald-400 hover:text-emerald-300 transition-colors"
+                    className="inline-flex items-center gap-1 text-sm font-semibold text-[#2545ff] hover:underline"
                   >
                     <span>Launch Strategy Lab</span>
-                    <ChevronRight size={12} />
+                    <ChevronRight size={14} />
                   </Link>
                 </div>
               </>
@@ -354,41 +278,47 @@ export default function LandingPage() {
 
             {activeTab === "analytics" && (
               <>
-                <div className="inline-flex items-center gap-1 text-[8.5px] font-mono border border-purple-500/20 bg-purple-500/5 px-2 py-0.5 rounded text-purple-400">
-                  <BarChart2 size={10} /> ROUTE: /ANALYTICS
+                <div className="bg-[#eaebf8] text-[#0c1754] rounded-[16px] py-[4px] px-[12px] font-sans font-medium text-[11px] tracking-wide inline-flex items-center gap-1.5 mb-2">
+                  <BarChart2 size={12} className="text-[#2545ff]" />
+                  <span>ROUTE: /ANALYTICS</span>
                 </div>
-                <h3 className="text-xl font-bold text-white">Analytics Intelligence Lab</h3>
-                <p className="text-white/60 text-xs leading-relaxed">
-                  A professional-grade market diagnostics environment. Toggle ticker feeds, view dynamic 3D volatility surfaces, track probability cones, and observe atmospheric Greek indicators ticking in real-time.
+                <h3 
+                  style={{ fontFamily: "Arial, sans-serif", letterSpacing: "-0.64px" }}
+                  className="text-[24px] font-medium text-[#0c1754] leading-[1.1]"
+                >
+                  Volatility Analytics Lab
+                </h3>
+                <p className="text-[#171417]/80 text-[14px] leading-[1.43]">
+                  A professional-grade market diagnostics environment. Observe active volatility curves, evaluate historical regimes, and analyze live implied volatility surfaces.
                 </p>
                 <div className="pt-2">
                   <Link
                     href="/analytics"
-                    className="inline-flex items-center gap-1.5 text-xs font-mono font-bold text-purple-400 hover:text-purple-300 transition-colors"
+                    className="inline-flex items-center gap-1 text-sm font-semibold text-[#2545ff] hover:underline"
                   >
                     <span>Launch Analytics Lab</span>
-                    <ChevronRight size={12} />
+                    <ChevronRight size={14} />
                   </Link>
                 </div>
               </>
             )}
           </div>
 
-          {/* Live Mini Component Renders */}
-          <div className="flex-1 w-full relative overflow-hidden self-stretch min-h-[350px] flex flex-col justify-center">
+          {/* Showcase Right: Interactive Mockup Panel */}
+          <div className="flex-1 w-full relative overflow-hidden self-stretch min-h-[350px] flex flex-col justify-center bg-[#07090f] border border-[#eaebf8] rounded-[16px] p-2">
             <PortfolioProvider>
-              <div className="transform-gpu transition-all duration-500 w-full h-full">
+              <div className="w-full h-full">
                 {activeTab === "intel" && (
-                  <div className="animate-in fade-in zoom-in-95 duration-500 w-full h-full flex flex-col justify-center">
-                    <div className="scale-[0.85] origin-center w-[115%] -ml-[7.5%]">
+                  <div className="w-full h-full flex flex-col justify-center">
+                    <div className="scale-[0.85] origin-center">
                       <PortfolioConsole />
                     </div>
                   </div>
                 )}
                 
                 {activeTab === "lab" && (
-                  <div className="animate-in fade-in zoom-in-95 duration-500 w-full h-full flex flex-col gap-2 justify-center">
-                    <div className="scale-[0.85] origin-center w-[115%] -ml-[7.5%] flex flex-col gap-2">
+                  <div className="w-full h-full flex flex-col gap-2 justify-center">
+                    <div className="scale-[0.85] origin-center flex flex-col gap-2">
                       <DeltaHedger />
                       <MarketPlayback />
                     </div>
@@ -396,8 +326,8 @@ export default function LandingPage() {
                 )}
                 
                 {activeTab === "analytics" && (
-                  <div className="animate-in fade-in zoom-in-95 duration-500 w-full h-full flex flex-col justify-center">
-                    <div className="scale-[0.85] origin-center w-[115%] -ml-[7.5%]">
+                  <div className="w-full h-full flex flex-col justify-center">
+                    <div className="scale-[0.85] origin-center">
                       <VolatilitySurface3D />
                     </div>
                   </div>
@@ -406,100 +336,166 @@ export default function LandingPage() {
             </PortfolioProvider>
           </div>
         </div>
+
       </section>
 
-      {/* Section 3: Deep Quant Philosophy Explanation */}
-      <section className="relative z-10 max-w-7xl mx-auto px-6 py-20 border-t border-white/5">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-          <div>
-            <span className="text-[8.5px] uppercase tracking-widest text-cyan-400 font-bold font-mono">
-              Product Philosophy
-            </span>
-            <h2 className="text-2xl md:text-3xl font-bold text-white mt-1">
-              Probabilistic Modeling vs. Direct Speculation
+      {/* 4. Philosophy Section (Section Gap 64px) */}
+      <section className="max-w-7xl mx-auto px-6 md:px-12 py-16 border-t border-[#eaebf8]">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+          
+          <div className="text-left">
+            <div className="bg-[#eaebf8] text-[#0c1754] rounded-[16px] py-[4px] px-[12px] font-sans font-medium text-[12px] tracking-wide inline-flex items-center gap-1.5 mb-3">
+              <span>PRODUCT PHILOSOPHY</span>
+            </div>
+            <h2 
+              style={{ fontFamily: "Arial, sans-serif", letterSpacing: "-0.64px" }}
+              className="text-[32px] font-medium text-[#0c1754] leading-[1.1] mt-2"
+            >
+              Probabilistic Calibration vs. Directional Speculation
             </h2>
-            <p className="text-white/60 text-xs leading-relaxed mt-4">
-              OptixFlow is built on a simple premise: options are not bets on direction; they are spatial and temporal contracts defined by uncertainty. 
-              We do not provide trade ideas or buy recommendations. Rather, the system functions as a cognition layer that interprets volatility structures, skew compression, event risk parameters, and mathematical decay.
+            <p className="text-[#171417]/80 text-[14px] leading-[1.43] mt-6">
+              OptixFlow is not a predictive advisory tool. We reject speculative "buy signals" in favor of mathematical mapping. The system operates as a cognition layer, exposing the volatility smile, delta boundaries, and mathematical decay.
             </p>
-            <p className="text-white/60 text-xs leading-relaxed mt-3">
-              By separating the platform into **Strategy Lab** (synthetic modeling) and **Analytics** (real market metrics), quants can transition seamlessly from raw research to structural risk validation.
+            <p className="text-[#171417]/80 text-[14px] leading-[1.43] mt-3">
+              By structuring positions through spatial delta-tolerance boundaries, options design shifts from speculation to structured probability calibration.
             </p>
           </div>
 
-          {/* Grid of features */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            <div className="bg-[#05070c]/80 border border-white/5 p-5 rounded-2xl shadow">
-              <ShieldCheck className="text-cyan-400 mb-2" size={16} />
-              <h4 className="text-white font-bold text-xs uppercase">Risk Geometry</h4>
-              <p className="text-white/40 text-[10px] mt-1 leading-normal">
-                Defined boundaries that protect portfolio health under catastrophic tail events.
+          {/* Grid of philosophy points (Pure White cards, 16px radius, no shadows) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            
+            <div className="bg-white border border-[#eaebf8] rounded-[16px] p-6 text-left">
+              <div className="shrink-0 w-8 h-8 rounded-full bg-[#2545ff]/10 flex items-center justify-center mb-4">
+                <ShieldCheck className="text-[#2545ff]" size={16} />
+              </div>
+              <h4 className="text-[#0c1754] font-semibold text-sm tracking-wider uppercase font-mono mb-2">Risk Geometry</h4>
+              <p className="text-[#171417]/60 text-[12px] leading-[1.4]">
+                Clear physical delta boundaries to buffer portfolio value under systemic market stress.
               </p>
             </div>
-            <div className="bg-[#05070c]/80 border border-white/5 p-5 rounded-2xl shadow">
-              <Globe className="text-emerald-400 mb-2" size={16} />
-              <h4 className="text-white font-bold text-xs uppercase">Regime Awareness</h4>
-              <p className="text-white/40 text-[10px] mt-1 leading-normal">
-                Scoring system adapts instantly when VIX indices contract or implied volatility spikes.
+
+            <div className="bg-white border border-[#eaebf8] rounded-[16px] p-6 text-left">
+              <div className="shrink-0 w-8 h-8 rounded-full bg-[#ffc13a]/10 flex items-center justify-center mb-4">
+                <Globe className="text-[#ffc13a]" size={16} />
+              </div>
+              <h4 className="text-[#0c1754] font-semibold text-sm tracking-wider uppercase font-mono mb-2">Regime Awareness</h4>
+              <p className="text-[#171417]/60 text-[12px] leading-[1.4]">
+                Adaptive Greek scoring structures that respond dynamically to vol expansion and compression.
               </p>
             </div>
-            <div className="bg-[#05070c]/80 border border-white/5 p-5 rounded-2xl shadow">
-              <Activity className="text-purple-400 mb-2" size={16} />
-              <h4 className="text-white font-bold text-xs uppercase">Decay Physics</h4>
-              <p className="text-white/40 text-[10px] mt-1 leading-normal">
-                Interactive modeling of Theta acceleration curves near standard expirations.
+
+            <div className="bg-white border border-[#eaebf8] rounded-[16px] p-6 text-left">
+              <div className="shrink-0 w-8 h-8 rounded-full bg-[#ff5b22]/10 flex items-center justify-center mb-4">
+                <Activity className="text-[#ff5b22]" size={16} />
+              </div>
+              <h4 className="text-[#0c1754] font-semibold text-sm tracking-wider uppercase font-mono mb-2">Decay Physics</h4>
+              <p className="text-[#171417]/60 text-[12px] leading-[1.4]">
+                Real-time modeling of Theta decay curves across Standard expirations.
               </p>
             </div>
-            <div className="bg-[#05070c]/80 border border-white/5 p-5 rounded-2xl shadow">
-              <Terminal className="text-amber-400 mb-2" size={16} />
-              <h4 className="text-white font-bold text-xs uppercase">Telemetry Feedback</h4>
-              <p className="text-white/40 text-[10px] mt-1 leading-normal">
-                Continuous logging of mathematical alignments for structural design integrity.
+
+            <div className="bg-white border border-[#eaebf8] rounded-[16px] p-6 text-left">
+              <div className="shrink-0 w-8 h-8 rounded-full bg-[#2545ff]/10 flex items-center justify-center mb-4">
+                <Terminal className="text-[#2545ff]" size={16} />
+              </div>
+              <h4 className="text-[#0c1754] font-semibold text-sm tracking-wider uppercase font-mono mb-2">Telemetry Logs</h4>
+              <p className="text-[#171417]/60 text-[12px] leading-[1.4]">
+                Streamed execution logging providing detailed diagnostic calculations.
               </p>
             </div>
+
           </div>
+
         </div>
       </section>
 
-      {/* Section 4: Call to Action (CTE) */}
-      <section className="relative z-10 max-w-5xl mx-auto px-6 py-24 text-center">
-        <div className="border border-white/10 bg-gradient-to-b from-[#05070c]/90 to-[#020408]/90 rounded-3xl p-8 md:p-12 relative overflow-hidden shadow-2xl">
+      {/* 5. Call to Action (CTE) Section (Section Gap 64px) */}
+      <section className="max-w-5xl mx-auto px-6 py-16 text-center">
+        <div className="bg-[#eaebf8] rounded-[16px] p-10 md:p-16 relative overflow-hidden flex flex-col items-center justify-center">
           
-          <div className="absolute -top-24 -left-24 w-48 h-48 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -top-24 -left-24 w-48 h-48 bg-[#2545ff]/5 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-[#d9d4ff]/10 rounded-full blur-3xl pointer-events-none" />
 
-          <h2 className="text-3xl md:text-4xl font-extrabold text-white tracking-tight">
+          <h2 
+            style={{ fontFamily: "Arial, sans-serif", letterSpacing: "-0.64px" }}
+            className="text-[32px] font-medium text-[#0c1754] leading-[1.1] text-center"
+          >
             Calibrate Your Market Thesis.
           </h2>
-          <p className="text-white/50 text-xs md:text-sm mt-4 max-w-xl mx-auto leading-relaxed">
-            Enter the intelligence network to explore multi-leg option profiles, map risk boundaries, and diagnostic exposure models.
+          <p className="text-[#171417]/80 text-sm mt-4 max-w-xl mx-auto leading-relaxed">
+            Construct complex multi-leg options spreads, stress-test Greek curves, and stream AI risk narrative commentary in real time.
           </p>
 
-          <div className="mt-8 flex justify-center gap-4">
+          <div className="mt-8 flex justify-center">
             <Link
               href="/intelligence"
-              className="border border-cyan-500/40 bg-cyan-500/15 text-cyan-400 font-bold px-8 py-3.5 rounded-xl hover:bg-cyan-500/25 transition-all flex items-center gap-2 hover:shadow-[0_0_20px_rgba(6,182,212,0.25)] cursor-pointer text-xs uppercase tracking-wider"
+              className="bg-[#2545ff] text-white hover:bg-[#1a3aff] text-sm font-medium py-[11.2px] px-[32px] rounded-[100px] transition-all flex items-center gap-2 cursor-pointer"
             >
               <span>Initialize System</span>
-              <ArrowRight size={13} />
+              <ArrowRight size={14} />
             </Link>
           </div>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-white/5 bg-[#03060c]/80 backdrop-blur px-6 py-8 relative z-10 font-mono text-[9px] text-white/30 text-center">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <div>
-            <span>© {new Date().getFullYear()} OPTIXFLOW SYSTEMS INC. INSTITUTIONAL RISK TECHNOLOGY.</span>
+      {/* 6. Footer (Full bleed, Boardroom Navy) */}
+      <footer className="bg-[#0c1754] text-white/70 py-16 px-6 md:px-12">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
+          
+          {/* Footer Info */}
+          <div className="space-y-4 text-left">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded bg-white/10 flex items-center justify-center">
+                <Zap size={12} className="text-white" />
+              </div>
+              <span className="text-base font-bold text-white uppercase tracking-wider">
+                OPTIXFLOW
+              </span>
+            </div>
+            <p className="text-[12px] max-w-md leading-relaxed text-white/50">
+              An institutional-grade volumetric environment for exploring derivatives behavior. Deconstruct volatility smiles, simulate portfolio Greeks, and stress-test structures under regime shifts.
+            </p>
+            <p className="text-[10px] font-mono text-white/35 pt-4">
+              © {new Date().getFullYear()} OPTIXFLOW SYSTEMS INC. ALL RIGHTS RESERVED.
+            </p>
           </div>
-          <div className="flex gap-4">
-            <Link href="/strategy" className="hover:text-white transition-colors">STRATEGY</Link>
-            <Link href="/analytics" className="hover:text-white transition-colors">ANALYTICS</Link>
-            <Link href="/intelligence" className="hover:text-white transition-colors">INTELLIGENCE</Link>
-            <Link href="/portfolio" className="hover:text-white transition-colors">PORTFOLIO</Link>
-            <Link href="/playbook" className="hover:text-white transition-colors">PLAYBOOK</Link>
+
+          {/* Footer Email subscription input */}
+          <div className="flex flex-col items-start gap-4">
+            <h4 
+              style={{ fontFamily: "Arial, sans-serif" }}
+              className="text-white font-medium text-sm tracking-wide"
+            >
+              SUBSCRIBE FOR DECAY PHYSICS UPDATES
+            </h4>
+            <form onSubmit={handleSubscribe} className="w-full max-w-md flex items-center gap-2">
+              <div className="relative flex-1">
+                <input
+                  type="email"
+                  required
+                  placeholder="Enter your institutional email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full bg-transparent text-white border-b border-[#cccccc] rounded-[0px] py-[12px] pl-[0px] focus:outline-none focus:border-white font-sans text-sm placeholder-white/35"
+                />
+              </div>
+              <button 
+                type="submit" 
+                className="bg-white text-[#0c1754] hover:bg-white/90 text-xs font-semibold py-3 px-6 rounded-[100px] transition-all flex items-center gap-2 shrink-0 cursor-pointer"
+              >
+                <Mail size={12} />
+                <span>SUBSCRIBE</span>
+              </button>
+            </form>
+            <div className="flex flex-wrap gap-x-6 gap-y-2 text-[11px] text-white/50 pt-4">
+              <Link href="/strategy" className="hover:text-white transition-colors">STRATEGY LAB</Link>
+              <Link href="/analytics" className="hover:text-white transition-colors">ANALYTICS</Link>
+              <Link href="/intelligence" className="hover:text-white transition-colors">TRADE INTEL</Link>
+              <Link href="/portfolio" className="hover:text-white transition-colors">PORTFOLIO</Link>
+              <Link href="/playbook" className="hover:text-white transition-colors">PLAYBOOK</Link>
+            </div>
           </div>
+
         </div>
       </footer>
 
