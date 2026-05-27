@@ -71,6 +71,22 @@ export default function LandingPage() {
   const [activeTab, setActiveTab] = useState<"intel" | "lab" | "analytics">("intel");
   const [email, setEmail] = useState("");
 
+  React.useEffect(() => {
+    // Override global body scroll lock for the landing page
+    document.body.classList.remove("overflow-hidden");
+    document.body.classList.remove("h-full");
+    document.body.style.overflow = "auto";
+    document.body.style.height = "auto";
+
+    return () => {
+      // Restore global body scroll lock when navigating away
+      document.body.classList.add("overflow-hidden");
+      document.body.classList.add("h-full");
+      document.body.style.overflow = "";
+      document.body.style.height = "";
+    };
+  }, []);
+
   const handleSubscribe = (e: React.FormEvent) => {
     e.preventDefault();
     alert(`Subscribed: ${email}`);
