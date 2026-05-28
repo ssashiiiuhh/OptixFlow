@@ -1,8 +1,12 @@
 // ============================================================================
 // OPTIXFLOW — Implied Volatility Surface Grid Generator
 // Produces a parameterized (strike, dte, iv) mesh for the 3D WebGL renderer.
-// Uses a quadratic smile + skew model calibrated per-ticker.
+// Uses the true BSM Math Engine and Vectorized IV Solver to generate the mesh.
 // ============================================================================
+
+import { bsmPrice } from "../../quant/greeks/bsm";
+import { vectorizedSolveIV } from "../../quant/volatility/ivSolver";
+import { VectorizedIVInput } from "../../quant/volatility/types";
 
 export interface IVSurfacePoint {
   strike: number;       // Normalized strike (moneyness: K/S)
@@ -10,6 +14,9 @@ export interface IVSurfacePoint {
   iv: number;           // Implied volatility (0..1)
   x: number;            // Grid index x
   y: number;            // Grid index y
+  isLowConfidence?: boolean;
+  butterflyArbitrage?: boolean;
+  calendarArbitrage?: boolean;
 }
 
 export interface IVSurfaceGrid {
@@ -50,13 +57,6 @@ function computeIV(moneyness: number, dte: number, params: SmileParams): number 
   return Math.max(0.04, Math.min(2.5, smileContrib + termContrib));
 }
 
-/**
- * Generate a complete IV surface grid for the 3D renderer.
- *
- * @param avgIV - Current portfolio average implied volatility (0..1)
- * @param nStrikes - Number of strike buckets (default 24)
- * @param nDTEs - Number of DTE buckets (default 16)
- */
 export function generateIVSurface(
   avgIV: number,
   nStrikes = 24,
@@ -75,24 +75,73 @@ export function generateIVSurface(
   }
 
   const params = getSmileParams(avgIV);
+  const inputs: VectorizedIVInput[] = [];
+  
+  // Base spot assumption for math
+  const SPOT = 100;
+  const RISK_FREE_RATE = 0.05;
+
+  for (let xi = 0; xi < nStrikes; xi++) {
+    for (let yi = 0; yi < nDTEs; yi++) {
+      // 1. Target theoretical IV based on skew model
+      const theoreticalIV = computeIV(strikes[xi], dtes[yi], params);
+      
+      // 2. Map moneyness to strike price
+      const strikePrice = SPOT * (1 + strikes[xi]);
+      const t = dtes[yi] / 365.25;
+
+      // 3. Generate theoretical option price using BSM
+      const targetPrice = bsmPrice(SPOT, strikePrice, t, theoreticalIV, RISK_FREE_RATE, "call", 0.0);
+
+      inputs.push({
+        id: `${xi}-${yi}`,
+        targetPrice,
+        spot: SPOT,
+        strike: strikePrice,
+        t,
+        type: "call",
+        r: RISK_FREE_RATE,
+        q: 0.0,
+      });
+    }
+  }
+
+  // 4. Run Vectorized Solver!
+  const solvedGrid = vectorizedSolveIV(inputs);
+
   const points: IVSurfacePoint[] = [];
   let minIV = Infinity;
   let maxIV = -Infinity;
 
-  for (let xi = 0; xi < nStrikes; xi++) {
-    for (let yi = 0; yi < nDTEs; yi++) {
-      const iv = computeIV(strikes[xi], dtes[yi], params);
-      minIV = Math.min(minIV, iv);
-      maxIV = Math.max(maxIV, iv);
-      points.push({
-        strike: strikes[xi],
-        dte: dtes[yi],
-        iv,
-        x: xi,
-        y: yi,
-      });
-    }
+  for (let i = 0; i < solvedGrid.length; i++) {
+    const solved = solvedGrid[i];
+    const [xStr, yStr] = solved.id.split("-");
+    const xi = parseInt(xStr, 10);
+    const yi = parseInt(yStr, 10);
+
+    const finalIV = solved.converged || solved.method === "brent" ? solved.iv : 0.04;
+    
+    minIV = Math.min(minIV, finalIV);
+    maxIV = Math.max(maxIV, finalIV);
+
+    points.push({
+      strike: strikes[xi],
+      dte: dtes[yi],
+      iv: finalIV,
+      x: xi,
+      y: yi,
+      isLowConfidence: solved.isLowConfidence,
+      butterflyArbitrage: solved.butterflyArbitrage,
+      calendarArbitrage: solved.calendarArbitrage,
+    });
   }
+
+  // Ensure points are sorted identically to how the mesh builder expects them
+  // The renderer maps `points[xi * N_DTES + yi]` directly.
+  points.sort((a, b) => {
+    if (a.x !== b.x) return a.x - b.x;
+    return a.y - b.y;
+  });
 
   return { points, strikes, dtes, minIV, maxIV };
 }
@@ -106,15 +155,60 @@ export function updateIVSurface(
   avgIV: number,
 ): IVSurfaceGrid {
   const params = getSmileParams(avgIV);
+  
+  const inputs: VectorizedIVInput[] = [];
+  const SPOT = 100;
+  const RISK_FREE_RATE = 0.05;
+
+  for (const p of grid.points) {
+    const theoreticalIV = computeIV(p.strike, p.dte, params);
+    const strikePrice = SPOT * (1 + p.strike);
+    const t = p.dte / 365.25;
+    const targetPrice = bsmPrice(SPOT, strikePrice, t, theoreticalIV, RISK_FREE_RATE, "call", 0.0);
+
+    inputs.push({
+      id: `${p.x}-${p.y}`,
+      targetPrice,
+      spot: SPOT,
+      strike: strikePrice,
+      t,
+      type: "call",
+      r: RISK_FREE_RATE,
+      q: 0.0,
+    });
+  }
+
+  const solvedGrid = vectorizedSolveIV(inputs);
+  
   let minIV = Infinity;
   let maxIV = -Infinity;
 
-  const updatedPoints = grid.points.map((p) => {
-    const iv = computeIV(p.strike, p.dte, params);
-    minIV = Math.min(minIV, iv);
-    maxIV = Math.max(maxIV, iv);
-    return { ...p, iv };
-  });
+  const pointMap = new Map<string, IVSurfacePoint>();
+  
+  for (let i = 0; i < solvedGrid.length; i++) {
+    const solved = solvedGrid[i];
+    const finalIV = solved.converged || solved.method === "brent" ? solved.iv : 0.04;
+    minIV = Math.min(minIV, finalIV);
+    maxIV = Math.max(maxIV, finalIV);
+
+    const [xStr, yStr] = solved.id.split("-");
+    const xi = parseInt(xStr, 10);
+    const yi = parseInt(yStr, 10);
+
+    pointMap.set(solved.id, {
+      strike: grid.points.find(gp => gp.x === xi && gp.y === yi)!.strike,
+      dte: grid.points.find(gp => gp.x === xi && gp.y === yi)!.dte,
+      iv: finalIV,
+      x: xi,
+      y: yi,
+      isLowConfidence: solved.isLowConfidence,
+      butterflyArbitrage: solved.butterflyArbitrage,
+      calendarArbitrage: solved.calendarArbitrage,
+    });
+  }
+
+  const updatedPoints = grid.points.map(p => pointMap.get(`${p.x}-${p.y}`)!);
 
   return { ...grid, points: updatedPoints, minIV, maxIV };
 }
+
