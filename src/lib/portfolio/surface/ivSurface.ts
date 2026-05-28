@@ -59,6 +59,7 @@ function computeIV(moneyness: number, dte: number, params: SmileParams): number 
 
 export function generateIVSurface(
   avgIV: number,
+  spot: number,
   nStrikes = 24,
   nDTEs = 16,
 ): IVSurfaceGrid {
@@ -77,8 +78,6 @@ export function generateIVSurface(
   const params = getSmileParams(avgIV);
   const inputs: VectorizedIVInput[] = [];
   
-  // Base spot assumption for math
-  const SPOT = 100;
   const RISK_FREE_RATE = 0.05;
 
   for (let xi = 0; xi < nStrikes; xi++) {
@@ -87,16 +86,16 @@ export function generateIVSurface(
       const theoreticalIV = computeIV(strikes[xi], dtes[yi], params);
       
       // 2. Map moneyness to strike price
-      const strikePrice = SPOT * (1 + strikes[xi]);
+      const strikePrice = spot * (1 + strikes[xi]);
       const t = dtes[yi] / 365.25;
 
       // 3. Generate theoretical option price using BSM
-      const targetPrice = bsmPrice(SPOT, strikePrice, t, theoreticalIV, RISK_FREE_RATE, "call", 0.0);
+      const targetPrice = bsmPrice(spot, strikePrice, t, theoreticalIV, RISK_FREE_RATE, "call", 0.0);
 
       inputs.push({
         id: `${xi}-${yi}`,
         targetPrice,
-        spot: SPOT,
+        spot,
         strike: strikePrice,
         t,
         type: "call",
@@ -153,23 +152,23 @@ export function generateIVSurface(
 export function updateIVSurface(
   grid: IVSurfaceGrid,
   avgIV: number,
+  spot: number,
 ): IVSurfaceGrid {
   const params = getSmileParams(avgIV);
   
   const inputs: VectorizedIVInput[] = [];
-  const SPOT = 100;
   const RISK_FREE_RATE = 0.05;
 
   for (const p of grid.points) {
     const theoreticalIV = computeIV(p.strike, p.dte, params);
-    const strikePrice = SPOT * (1 + p.strike);
+    const strikePrice = spot * (1 + p.strike);
     const t = p.dte / 365.25;
-    const targetPrice = bsmPrice(SPOT, strikePrice, t, theoreticalIV, RISK_FREE_RATE, "call", 0.0);
+    const targetPrice = bsmPrice(spot, strikePrice, t, theoreticalIV, RISK_FREE_RATE, "call", 0.0);
 
     inputs.push({
       id: `${p.x}-${p.y}`,
       targetPrice,
-      spot: SPOT,
+      spot,
       strike: strikePrice,
       t,
       type: "call",

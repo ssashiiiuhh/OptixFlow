@@ -90,7 +90,11 @@ interface AxisLabel {
 }
 
 export default function VolatilitySurface3D() {
-  const { portfolioGreeks, holdings, isTicking } = usePortfolio();
+  const { portfolioGreeks, holdings, isTicking, spotPrices } = usePortfolio();
+  
+  // ── Use the real active spot price (defaulting to SPY or 530)
+  const currentSpot = spotPrices["SPY"] || Object.values(spotPrices)[0] || 530;
+
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -165,10 +169,11 @@ export default function VolatilitySurface3D() {
     if (!line || !showPayoff) return;
     const strikes = Array.from({ length: N_STRIKES }, (_, i) => -0.25 + (i / (N_STRIKES - 1)) * 0.5);
     const dteSliceY = 0; // ATM DTE slice at centre
-    const avgSpot = 530; // proxy reference spot
+    
     const verts = computePayoffVertices(
       holdings.map(h => ({ delta: h.delta, gamma: h.gamma, quantity: h.quantity })),
-      strikes, avgSpot, dteSliceY,
+      strikes, currentSpot, dteSliceY,
+
       gridRef.current?.minIV ?? 0.1, gridRef.current?.maxIV ?? 0.8,
     );
     const posAttr = line.geometry.getAttribute("position") as THREE.BufferAttribute;
@@ -238,7 +243,7 @@ export default function VolatilitySurface3D() {
 
     // Build IV surface
     const avgIV = (portfolioGreeks.avgIV || 25) / 100;
-    const ivGrid = generateIVSurface(avgIV, N_STRIKES, N_DTES);
+    const ivGrid = generateIVSurface(avgIV, currentSpot, N_STRIKES, N_DTES);
     gridRef.current = ivGrid;
 
     const geo = buildGeometry(ivGrid);
@@ -313,11 +318,11 @@ export default function VolatilitySurface3D() {
   // Update surface on IV change
   useEffect(() => {
     if (!gridRef.current) return;
-    const updated = updateIVSurface(gridRef.current, (portfolioGreeks.avgIV || 25) / 100);
+    const updated = updateIVSurface(gridRef.current, (portfolioGreeks.avgIV || 25) / 100, currentSpot);
     gridRef.current = updated;
     updateGeometry(updated);
     updatePayoffLine();
-  }, [portfolioGreeks.avgIV, updateGeometry, updatePayoffLine]);
+  }, [portfolioGreeks.avgIV, currentSpot, updateGeometry, updatePayoffLine]);
 
   // Update payoff when holdings change
   useEffect(() => {
