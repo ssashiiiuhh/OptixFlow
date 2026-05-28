@@ -10,7 +10,7 @@ import { useEffect, useRef, useCallback, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { usePortfolio } from "./PortfolioContext";
-import { generateIVSurface, updateIVSurface, type IVSurfaceGrid } from "@/lib/portfolio/surface/ivSurface";
+import { generateIVSurface, updateIVSurfaceAsync, type IVSurfaceGrid } from "@/lib/portfolio/surface/ivSurface";
 import { motion } from "framer-motion";
 import { Layers, RotateCcw, Maximize2, TrendingUp } from "lucide-react";
 
@@ -106,6 +106,11 @@ export default function VolatilitySurface3D() {
   const gridRef = useRef<IVSurfaceGrid | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
   const [showPayoff, setShowPayoff] = useState(true);
+  const [isCalculating, setIsCalculating] = useState(false);
+
+  // Target buffers for vertex lerping
+  const targetZRef = useRef<Float32Array | null>(null);
+  const targetColRef = useRef<Float32Array | null>(null);
 
   // Axis label refs (DOM elements updated directly in RAF loop)
   const labelStrikeLeft  = useRef<HTMLDivElement>(null);
@@ -149,19 +154,23 @@ export default function VolatilitySurface3D() {
   const updateGeometry = useCallback((grid: IVSurfaceGrid) => {
     const mesh = meshRef.current;
     if (!mesh) return;
-    const posA = mesh.geometry.getAttribute("position") as THREE.BufferAttribute;
-    const colA = mesh.geometry.getAttribute("color") as THREE.BufferAttribute;
+    
+    // Initialize target buffers if empty
+    if (!targetZRef.current) targetZRef.current = new Float32Array(N_STRIKES * N_DTES);
+    if (!targetColRef.current) targetColRef.current = new Float32Array(N_STRIKES * N_DTES * 3);
+    
     for (let xi = 0; xi < N_STRIKES; xi++) {
       for (let yi = 0; yi < N_DTES; yi++) {
         const idx = xi * N_DTES + yi;
         const p = grid.points[idx];
-        posA.setZ(idx, ((p.iv - grid.minIV) / (grid.maxIV - grid.minIV || 1)) * SCALE_Z);
+        
+        targetZRef.current[idx] = ((p.iv - grid.minIV) / (grid.maxIV - grid.minIV || 1)) * SCALE_Z;
         const col = ivToColor(p.iv, grid.minIV, grid.maxIV);
-        colA.setXYZ(idx, col.r, col.g, col.b);
+        targetColRef.current[idx * 3] = col.r;
+        targetColRef.current[idx * 3 + 1] = col.g;
+        targetColRef.current[idx * 3 + 2] = col.b;
       }
     }
-    posA.needsUpdate = true; colA.needsUpdate = true;
-    mesh.geometry.computeVertexNormals();
   }, []);
 
   const updatePayoffLine = useCallback(() => {
@@ -281,6 +290,42 @@ export default function VolatilitySurface3D() {
       if (!alive) return;
       frameRef.current = requestAnimationFrame(animate);
       controls.update();
+
+      // Lerp vertices towards target if updated
+      const mesh = meshRef.current;
+      if (mesh && targetZRef.current && targetColRef.current) {
+        const posA = mesh.geometry.getAttribute("position") as THREE.BufferAttribute;
+        const colA = mesh.geometry.getAttribute("color") as THREE.BufferAttribute;
+        let needsUpdate = false;
+        
+        for (let i = 0; i < N_STRIKES * N_DTES; i++) {
+          const currentZ = posA.getZ(i);
+          const targetZ = targetZRef.current[i];
+          if (Math.abs(currentZ - targetZ) > 0.001) {
+            posA.setZ(i, currentZ + (targetZ - currentZ) * 0.1);
+            needsUpdate = true;
+          }
+          
+          const currentR = colA.getX(i);
+          const targetR = targetColRef.current[i * 3];
+          if (Math.abs(currentR - targetR) > 0.001) {
+            colA.setXYZ(
+              i,
+              currentR + (targetR - currentR) * 0.1,
+              colA.getY(i) + (targetColRef.current[i * 3 + 1] - colA.getY(i)) * 0.1,
+              colA.getZ(i) + (targetColRef.current[i * 3 + 2] - colA.getZ(i)) * 0.1
+            );
+            needsUpdate = true;
+          }
+        }
+        
+        if (needsUpdate) {
+          posA.needsUpdate = true;
+          colA.needsUpdate = true;
+          mesh.geometry.computeVertexNormals();
+        }
+      }
+
       renderer.render(scene, camera);
 
       // Update projected label positions via direct DOM manipulation
@@ -318,10 +363,21 @@ export default function VolatilitySurface3D() {
   // Update surface on IV change
   useEffect(() => {
     if (!gridRef.current) return;
-    const updated = updateIVSurface(gridRef.current, (portfolioGreeks.avgIV || 25) / 100, currentSpot);
-    gridRef.current = updated;
-    updateGeometry(updated);
-    updatePayoffLine();
+    
+    let active = true;
+    const fetchAsync = async () => {
+      setIsCalculating(true);
+      const updated = await updateIVSurfaceAsync(gridRef.current!, (portfolioGreeks.avgIV || 25) / 100, currentSpot);
+      if (!active) return;
+      gridRef.current = updated;
+      updateGeometry(updated);
+      updatePayoffLine();
+      setIsCalculating(false);
+    };
+    
+    fetchAsync();
+    
+    return () => { active = false; };
   }, [portfolioGreeks.avgIV, currentSpot, updateGeometry, updatePayoffLine]);
 
   // Update payoff when holdings change
@@ -402,6 +458,21 @@ export default function VolatilitySurface3D() {
           <div ref={labelIVLow}       className="absolute -translate-x-1/2 -translate-y-1/2 text-[7px] font-mono text-[var(--ox-accent-amber)]/70 whitespace-nowrap bg-black/40 px-1 rounded">Low IV</div>
           <div ref={labelIVHigh}      className="absolute -translate-x-1/2 -translate-y-1/2 text-[7px] font-mono text-[var(--ox-accent-amber)]/70 whitespace-nowrap bg-black/40 px-1 rounded">High IV</div>
         </div>
+
+        {/* Scanline loading effect when Web Worker is calculating */}
+        {isCalculating && (
+          <div className="absolute inset-0 z-10 pointer-events-none rounded-xl overflow-hidden mix-blend-screen opacity-40">
+            <motion.div 
+              className="absolute w-full h-[20%] bg-gradient-to-b from-transparent via-cyan-500/30 to-transparent"
+              initial={{ top: "-20%" }}
+              animate={{ top: "120%" }}
+              transition={{ repeat: Infinity, duration: 1.2, ease: "linear" }}
+            />
+            <div className="absolute top-4 right-4 text-[10px] font-mono text-cyan-400 bg-black/40 px-2 py-1 rounded border border-cyan-500/20 shadow-[0_0_10px_rgba(0,212,255,0.3)] animate-pulse">
+              WORKER: SOLVING GRID...
+            </div>
+          </div>
+        )}
 
         {/* Drag hint */}
         <div className="absolute top-2 left-1/2 -translate-x-1/2 pointer-events-none">

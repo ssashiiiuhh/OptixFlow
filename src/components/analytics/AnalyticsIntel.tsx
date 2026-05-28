@@ -47,6 +47,8 @@ import { marketDataService, MarketAsset, OptionsChainRow, VolatilityRegime } fro
 import { evaluateStrategySuitability } from "@/lib/market/RegimeSuitabilityEngine";
 import VolatilitySurface3D from "./VolatilitySurface3D";
 import DataConnectorModal from "./DataConnectorModal";
+import MonteCarloEngine from "./MonteCarloEngine";
+import BlackScholesEngine from "./BlackScholesEngine";
 
 // ── REGIME VISUAL METADATA ───────────────────────────────────────────────────
 
@@ -128,6 +130,7 @@ export default function AnalyticsIntel() {
   const [selectedTicker, setSelectedTicker] = useState("SPY");
   const [selectedDte, setSelectedDte] = useState(30);
   const [viewMode, setViewMode] = useState<ViewMode>("3d_surface");
+  const [activeTab, setActiveTab] = useState<"intelligence" | "monte_carlo" | "bsm">("intelligence");
   
   // Connection states
   const [isKeysOpen, setIsKeysOpen] = useState(false);
@@ -397,7 +400,48 @@ export default function AnalyticsIntel() {
         </div>
       </div>
 
-      {/* ── CENTRAL SPLIT workspace ── */}
+      {/* ── SUB-TAB NAVIGATION ── */}
+      <div className="flex px-6 border-b border-white/5 bg-[#05070a]/90 backdrop-blur-md shrink-0 z-10 font-mono text-[10px]">
+        <button
+          onClick={() => setActiveTab("intelligence")}
+          className={`px-4 py-2.5 font-bold border-b-2 transition-all ${
+            activeTab === "intelligence"
+              ? "border-cyan-400 text-cyan-400"
+              : "border-transparent text-white/40 hover:text-white/80"
+          }`}
+        >
+          MARKET INTELLIGENCE
+        </button>
+        <button
+          onClick={() => setActiveTab("monte_carlo")}
+          className={`px-4 py-2.5 font-bold border-b-2 transition-all flex items-center gap-1.5 ${
+            activeTab === "monte_carlo"
+              ? "border-purple-400 text-purple-400"
+              : "border-transparent text-white/40 hover:text-white/80"
+          }`}
+        >
+          <Compass size={12} className={activeTab === "monte_carlo" ? "text-purple-400" : ""} />
+          MONTE CARLO RISK ENGINE
+        </button>
+        <button
+          onClick={() => setActiveTab("bsm")}
+          className={`px-4 py-2.5 font-bold border-b-2 transition-all flex items-center gap-1.5 ${
+            activeTab === "bsm"
+              ? "border-emerald-400 text-emerald-400"
+              : "border-transparent text-white/40 hover:text-white/80"
+          }`}
+        >
+          <Zap size={12} className={activeTab === "bsm" ? "text-emerald-400" : ""} />
+          BLACK-SCHOLES PRICER
+        </button>
+      </div>
+
+      {/* ── CONDITIONAL RENDER WORKSPACE ── */}
+      {activeTab === "monte_carlo" ? (
+        <MonteCarloEngine />
+      ) : activeTab === "bsm" ? (
+        <BlackScholesEngine />
+      ) : (
       <div className="flex-1 min-h-0 grid grid-cols-[330px_1fr] divide-x divide-white/5 overflow-hidden z-10 relative">
         
         {/* ── LEFT DRAWER: Greeks exposure and What-If Stress matrix ── */}
@@ -934,6 +978,7 @@ export default function AnalyticsIntel() {
         </div>
 
       </div>
+      )}
 
       {/* Settings key connector modal */}
       <DataConnectorModal

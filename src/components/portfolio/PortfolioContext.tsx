@@ -30,6 +30,7 @@ import {
 import { RAW_LEGS, SPOT_PRICES as INITIAL_SPOT_PRICES, IVS as INITIAL_IVS } from "@/lib/portfolio-data";
 import { computeHedgeSignal, type DeltaHedgerState } from "@/lib/portfolio/hedger/deltaHedger";
 import { HISTORICAL_SCENARIOS, type HistoricalScenario } from "@/lib/portfolio/playback/historicalScenarios";
+import { getBeta } from "@/lib/quant/market/betaMap";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -114,6 +115,12 @@ export interface Scenario {
   holdingImpacts: Record<string, number>;
 }
 
+export interface AppSettings {
+  aiAggression: "low" | "medium" | "high";
+  highContrast: boolean;
+  showTooltips: boolean;
+}
+
 // ── Context Interface ─────────────────────────────────────────────────────────
 
 interface PortfolioContextType {
@@ -135,6 +142,10 @@ interface PortfolioContextType {
   meanPnl: number;
   expectedStdDev: number;
   narration: string[];
+
+  // Beta Weighting
+  isBetaWeighted: boolean;
+  setIsBetaWeighted: (b: boolean) => void;
 
   // Ticking controls
   manualTick: () => void;
@@ -163,6 +174,10 @@ interface PortfolioContextType {
   aiNarrationLines: string[];
   isNarrating: boolean;
   requestAINarration: () => void;
+
+  // Settings
+  settings: AppSettings;
+  updateSettings: (newSettings: Partial<AppSettings>) => void;
 }
 
 const PortfolioContext = createContext<PortfolioContextType | undefined>(undefined);
@@ -188,6 +203,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   const [spotPrices, setSpotPrices] = useState<Record<string, number>>(INITIAL_SPOT_PRICES);
   const [ivs, setIvs] = useState<Record<string, number>>(INITIAL_IVS);
   const [isTicking, setIsTicking] = useState(false);
+  const [isBetaWeighted, setIsBetaWeighted] = useState(false);
   const [tickCount, setTickCount] = useState(0);
   const [priceDirections, setPriceDirections] = useState<Record<string, "up" | "down" | "flat">>({});
   const [tickingHistory, setTickingHistory] = useState<PLPoint[]>([]);
@@ -208,6 +224,17 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   const [aiNarrationLines, setAiNarrationLines] = useState<string[]>([]);
   const [isNarrating, setIsNarrating] = useState(false);
   const narrationTickRef = useRef(0);
+
+  // Settings
+  const [settings, setSettings] = useState<AppSettings>({
+    aiAggression: "medium",
+    highContrast: false,
+    showTooltips: true,
+  });
+
+  const updateSettings = useCallback((newSettings: Partial<AppSettings>) => {
+    setSettings((prev) => ({ ...prev, ...newSettings }));
+  }, []);
 
   // ── Reset ────────────────────────────────────────────────────────────────
 
@@ -365,7 +392,18 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
 
     const totalCost = strategyGroups.reduce((s, g) => s + Math.abs(g.costBasis), 0);
     const netPnl = strategyGroups.reduce((s, g) => s + g.pnl, 0);
-    const totalDelta = strategyGroups.reduce((s, g) => s + g.greeks.delta, 0) + simulatedHedgeDelta;
+    
+    const totalDelta = strategyGroups.reduce((s, g) => {
+      let d = g.greeks.delta;
+      if (isBetaWeighted) {
+        const beta = getBeta(g.ticker);
+        const spySpot = spotPrices["SPY"] || 530; // fallback SPY price
+        const posSpot = spotPrices[g.ticker] || 100;
+        d = d * beta * (posSpot / spySpot);
+      }
+      return s + d;
+    }, 0) + simulatedHedgeDelta;
+
     const totalGamma = strategyGroups.reduce((s, g) => s + g.greeks.gamma, 0);
     const totalTheta = strategyGroups.reduce((s, g) => s + g.greeks.theta, 0);
     const totalVega = strategyGroups.reduce((s, g) => s + g.greeks.vega, 0);
@@ -436,7 +474,28 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     });
 
     return { holdings, portfolioGreeks, greeksRadar, exposureSegments, scenarios, varMetrics: mcResult.varMetrics, meanPnl: mcResult.meanPnl, expectedStdDev: mcResult.expectedStdDev, narration };
-  }, [spotPrices, ivs, simulatedHedgeDelta]);
+  }, [spotPrices, ivs, simulatedHedgeDelta, isBetaWeighted]);
+
+  // ── Edge-Case Alert System (The Cognition Feed) ──────────────────────────
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const { totalTheta, totalGamma } = quantData.portfolioGreeks;
+      const minDte = Math.min(...quantData.holdings.map(h => h.daysToExpiry), 999);
+      
+      // "Death Zone" Heuristic
+      if (totalTheta < -100 && Math.abs(totalTheta) > (Math.abs(totalGamma) * 100 * 5) && minDte < 7) {
+        const alertMsg = `[CRITICAL HAZARD] Greek Inversion Detected: Theta decay (-$${Math.abs(totalTheta).toFixed(1)}/day) is severely outpacing Gamma structure. Entering Death Zone.`;
+        setAiNarrationLines(prev => {
+          if (!prev.includes(alertMsg)) {
+            const next = [...prev, alertMsg];
+            return next.length > 40 ? next.slice(next.length - 40) : next;
+          }
+          return prev;
+        });
+      }
+    }, 500); // Debounce to prevent flooding during rapid slider scrubbing
+    return () => clearTimeout(timer);
+  }, [quantData.portfolioGreeks.totalTheta, quantData.portfolioGreeks.totalGamma, quantData.holdings]);
 
   // ── Delta Hedger ─────────────────────────────────────────────────────────
 
@@ -571,6 +630,8 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
         meanPnl: quantData.meanPnl,
         expectedStdDev: quantData.expectedStdDev,
         narration: quantData.narration,
+        isBetaWeighted,
+        setIsBetaWeighted,
         manualTick, resetPortfolio,
         hedgerState, autoHedgeEnabled, setAutoHedgeEnabled,
         simulateHedge, hedgeTolerance, setHedgeTolerance,
@@ -578,6 +639,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
         playbackIsPlaying, setPlaybackScenario, stepPlayback,
         togglePlayback, resetPlayback, exitPlayback,
         aiNarrationLines, isNarrating, requestAINarration,
+        settings, updateSettings,
       }}
     >
       {children}

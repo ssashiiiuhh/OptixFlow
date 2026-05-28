@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import AppShellLayout from "@/components/layout/AppShellLayout";
-import StrategyLab from "@/components/strategy/StrategyLab";
+import dynamic from "next/dynamic";
+const StrategyLab = dynamic(() => import("@/components/strategy/StrategyLab"));
 
 export const metadata: Metadata = {
   title: "Strategy Lab Sandbox",

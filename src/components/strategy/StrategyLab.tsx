@@ -111,6 +111,7 @@ export default function StrategyLab() {
   const [dte, setDte] = useState(TOTAL_DTE);
   const [iv, setIv] = useState(30); // 10% to 100%
   const [quantity, setQuantity] = useState(1);
+  const [autoHedge, setAutoHedge] = useState(false);
 
   // Comparison State
   const [comparisonStrategy, setComparisonStrategy] = useState<string | null>(null);
@@ -350,7 +351,11 @@ export default function StrategyLab() {
   }, [strategy, smoothProps.spot, smoothProps.strike, smoothProps.dte, smoothProps.iv, initialSpot, initialIv, smoothProps.spreadWidth, comparisonStrategy]);
 
   // Derived Greek values scaled to contract sizes (* Quantity)
-  const totalDelta = metrics.delta * quantity;
+  const rawTotalDelta = metrics.delta * quantity;
+  const theoreticalHedgeShares = autoHedge ? -rawTotalDelta * 100 : 0;
+  const roundedHedgeShares = Math.round(theoreticalHedgeShares);
+  const totalDelta = autoHedge ? rawTotalDelta + (roundedHedgeShares / 100) : rawTotalDelta;
+  
   const totalGamma = metrics.gamma * quantity;
   const totalTheta = metrics.theta * quantity;
   const totalVega = metrics.vega * quantity;
@@ -480,6 +485,19 @@ export default function StrategyLab() {
           />
         )}
       </AnimatePresence>
+
+      {/* ── SUB-TAB NAVIGATION ── */}
+      <div className="flex px-6 border-b border-white/5 bg-[#05070a]/90 backdrop-blur-md shrink-0 z-20 font-mono text-[10px] relative">
+        <button className="px-4 py-2.5 font-bold border-b-2 border-cyan-400 text-cyan-400 transition-all">
+          STRATEGY CONSTRUCTOR
+        </button>
+        <button className="px-4 py-2.5 font-bold border-b-2 border-transparent text-white/40 hover:text-white/80 transition-all">
+          SCENARIO MATRIX
+        </button>
+        <button className="px-4 py-2.5 font-bold border-b-2 border-transparent text-white/40 hover:text-white/80 transition-all">
+          SAVED STRATEGIES
+        </button>
+      </div>
 
       {/* ── Outer Laboratory Layout ── */}
       <div className="relative z-10 flex-1 grid grid-cols-[300px_1fr_320px] divide-x divide-white/5 overflow-hidden">
@@ -1006,7 +1024,20 @@ export default function StrategyLab() {
 
           {/* Dynamic Greeks Panel */}
           <div className="flex flex-col gap-3">
-            <label className="text-[8px] font-mono text-white/30 uppercase tracking-widest">Greek Exposures</label>
+            <div className="flex items-center justify-between">
+              <label className="text-[8px] font-mono text-white/30 uppercase tracking-widest">Greek Exposures</label>
+              <button
+                onClick={() => setAutoHedge(!autoHedge)}
+                className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-[8px] font-mono uppercase transition-colors ${
+                  autoHedge
+                    ? "border-[#00d4ff] text-[#00d4ff] bg-[#00d4ff]/10"
+                    : "border-white/10 text-white/40 hover:text-white hover:border-white/20"
+                }`}
+              >
+                <span className={`w-1 h-1 rounded-full ${autoHedge ? "bg-[#00d4ff] shadow-[0_0_6px_#00d4ff] animate-pulse" : "bg-gray-500"}`} />
+                Auto-Hedge Δ
+              </button>
+            </div>
 
             {/* Delta */}
             <GreekCard
@@ -1015,7 +1046,9 @@ export default function StrategyLab() {
               unit="shares"
               description="Price Sensitivity"
               interpretation={
-                totalDelta > 0.1
+                autoHedge
+                  ? `Hedged with ${roundedHedgeShares} shares (Exact: ${theoreticalHedgeShares.toFixed(2)}). Residual risk: ${(totalDelta * 100).toFixed(1)} shares.`
+                  : totalDelta > 0.1
                   ? `Bullish exposure. Matches holding ${Math.round(totalDelta * 100)} shares of underlying stock.`
                   : totalDelta < -0.1
                   ? `Bearish exposure. Matches shorting ${Math.round(Math.abs(totalDelta) * 100)} shares.`

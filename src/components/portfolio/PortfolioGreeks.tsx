@@ -234,7 +234,7 @@ function ConcentrationRisk() {
 // ── Main Panel ────────────────────────────────────────────────────────────
 
 export default function PortfolioGreeks() {
-  const { portfolioGreeks, greeksRadar, holdings, isTicking } = usePortfolio();
+  const { portfolioGreeks, greeksRadar, holdings, isTicking, isBetaWeighted, setIsBetaWeighted } = usePortfolio();
 
   // Dynamically evaluate interpretation messages and gauge fills
   const meters = useMemo(() => {
@@ -316,9 +316,22 @@ export default function PortfolioGreeks() {
             Portfolio-level risk sensitivity · aggregate exposure
           </p>
         </div>
-        <span className="text-[9px] font-mono text-[var(--ox-text-muted)] border border-[var(--ox-border-default)] rounded-md px-2 py-1 uppercase">
-          {holdings.length} POSITIONS {isTicking && "· LIVE"}
-        </span>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsBetaWeighted(!isBetaWeighted)}
+            className={`flex items-center gap-1.5 px-2 py-1 rounded-md border text-[9px] font-mono uppercase transition-colors ${
+              isBetaWeighted
+                ? "border-[#00d4ff] text-[#00d4ff] bg-[#00d4ff]/10"
+                : "border-[var(--ox-border-default)] text-[var(--ox-text-muted)] hover:text-white hover:border-white/20"
+            }`}
+          >
+            <span className={`w-1.5 h-1.5 rounded-full ${isBetaWeighted ? "bg-[#00d4ff] shadow-[0_0_6px_#00d4ff] animate-pulse" : "bg-gray-600"}`} />
+            β-Weight (SPY)
+          </button>
+          <span className="text-[9px] font-mono text-[var(--ox-text-muted)] border border-[var(--ox-border-default)] rounded-md px-2 py-1 uppercase">
+            {holdings.length} POSITIONS {isTicking && "· LIVE"}
+          </span>
+        </div>
       </div>
 
       {/* Radar chart */}

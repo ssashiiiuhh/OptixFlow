@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import AppShellLayout from "@/components/layout/AppShellLayout";
-import PortfolioDashboard from "@/components/portfolio/PortfolioDashboard";
+import dynamic from "next/dynamic";
+const PortfolioDashboard = dynamic(() => import("@/components/portfolio/PortfolioDashboard"));
 
 export const metadata: Metadata = {
   title: "Portfolio Intelligence",

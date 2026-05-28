@@ -25,11 +25,13 @@ import {
   Network
 } from "lucide-react";
 
+import dynamic from "next/dynamic";
 import { PortfolioProvider } from "@/components/portfolio/PortfolioContext";
-import VolatilitySurface3D from "@/components/portfolio/VolatilitySurface3D";
-import DeltaHedger from "@/components/portfolio/DeltaHedger";
-import PortfolioConsole from "@/components/portfolio/PortfolioConsole";
-import MarketPlayback from "@/components/portfolio/MarketPlayback";
+
+const VolatilitySurface3D = dynamic(() => import("@/components/portfolio/VolatilitySurface3D"), { ssr: false });
+const DeltaHedger = dynamic(() => import("@/components/portfolio/DeltaHedger"), { ssr: false });
+const PortfolioConsole = dynamic(() => import("@/components/portfolio/PortfolioConsole"), { ssr: false });
+const MarketPlayback = dynamic(() => import("@/components/portfolio/MarketPlayback"), { ssr: false });
 
 // ── Reusable Viewport Scroll Reveal Component ──────────────────────────────
 interface ScrollRevealProps {
@@ -106,7 +108,7 @@ export default function LandingPage() {
             Optix<span className="text-[#2545ff] font-medium">Flow</span>
           </span>
           <span className="text-[#eaebf8] hidden sm:inline">|</span>
-          <span className="text-[#0c1754]/50 text-[10px] font-mono tracking-wider uppercase hidden sm:inline">
+          <span className="text-[#0c1754]/70 text-[10px] font-mono tracking-wider uppercase hidden sm:inline">
             DERIVATIVES COGNITION ENGINE
           </span>
         </div>
@@ -139,6 +141,7 @@ export default function LandingPage() {
         </div>
       </header>
 
+      <main>
       {/* 2. Hero Section (Split Screen, Mount Animation) */}
       <section className="max-w-7xl mx-auto px-6 md:px-12 py-16 grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
         
@@ -190,22 +193,24 @@ export default function LandingPage() {
           {/* Telemetry Dashboard Stats */}
           <div className="mt-12 w-full border border-[#eaebf8] bg-white rounded-[16px] p-4.5 font-mono text-[10px] text-[#222222] grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div>
-              <span className="block text-[8px] uppercase tracking-wider text-[#0c1754]/50 mb-0.5">Asset Reference</span>
+              <span className="block text-[8px] uppercase tracking-wider text-[#0c1754]/70 mb-0.5">Asset Reference</span>
               <span className="text-[#0c1754] font-bold text-[11px] flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#ffc13a]" /> SPY Index
               </span>
             </div>
             <div>
-              <span className="block text-[8px] uppercase tracking-wider text-[#0c1754]/50 mb-0.5">Scoring Model</span>
+              <span className="block text-[8px] uppercase tracking-wider text-[#0c1754]/70 mb-0.5">Scoring Model</span>
               <span className="text-[#2545ff] font-bold text-[11px] uppercase">Black-Scholes</span>
             </div>
             <div>
-              <span className="block text-[8px] uppercase tracking-wider text-[#0c1754]/50 mb-0.5">Diagnostics</span>
+              <span className="block text-[8px] uppercase tracking-wider text-[#0c1754]/70 mb-0.5">Diagnostics</span>
               <span className="text-[#0c1754] font-bold text-[11px]">Suitability V3</span>
             </div>
             <div>
-              <span className="block text-[8px] uppercase tracking-wider text-[#0c1754]/50 mb-0.5">Theme System</span>
-              <span className="text-[#ff5b22] font-bold text-[11px] uppercase">Officevibe light</span>
+              <span className="block text-[8px] uppercase tracking-wider text-[#0c1754]/70 mb-0.5">Theme System</span>
+              <span className="text-[#c2410c] font-bold text-[11px] uppercase">
+                Officevibe Light
+              </span>
             </div>
           </div>
 
@@ -554,7 +559,7 @@ export default function LandingPage() {
                 <div className="shrink-0 w-8 h-8 rounded-full bg-[#2545ff]/10 flex items-center justify-center mb-4">
                   <ShieldCheck className="text-[#2545ff]" size={16} />
                 </div>
-                <h4 className="text-[#0c1754] font-semibold text-sm tracking-wider uppercase font-mono mb-2">Risk Geometry</h4>
+                <h3 className="text-[#0c1754] font-semibold text-sm tracking-wider uppercase font-mono mb-2">Risk Geometry</h3>
                 <p className="text-[#171417]/60 text-[12px] leading-[1.4]">
                   Clear physical delta boundaries to buffer portfolio value under systemic market stress.
                 </p>
@@ -566,7 +571,7 @@ export default function LandingPage() {
                 <div className="shrink-0 w-8 h-8 rounded-full bg-[#ffc13a]/10 flex items-center justify-center mb-4">
                   <Globe className="text-[#ffc13a]" size={16} />
                 </div>
-                <h4 className="text-[#0c1754] font-semibold text-sm tracking-wider uppercase font-mono mb-2">Regime Awareness</h4>
+                <h3 className="text-[#0c1754] font-semibold text-sm tracking-wider uppercase font-mono mb-2">Regime Awareness</h3>
                 <p className="text-[#171417]/60 text-[12px] leading-[1.4]">
                   Adaptive Greek scoring structures that respond dynamically to vol expansion and compression.
                 </p>
@@ -578,7 +583,7 @@ export default function LandingPage() {
                 <div className="shrink-0 w-8 h-8 rounded-full bg-[#ff5b22]/10 flex items-center justify-center mb-4">
                   <Activity className="text-[#ff5b22]" size={16} />
                 </div>
-                <h4 className="text-[#0c1754] font-semibold text-sm tracking-wider uppercase font-mono mb-2">Decay Physics</h4>
+                <h3 className="text-[#0c1754] font-semibold text-sm tracking-wider uppercase font-mono mb-2">Decay Physics</h3>
                 <p className="text-[#171417]/60 text-[12px] leading-[1.4]">
                   Real-time modeling of Theta decay curves across Standard expirations.
                 </p>
@@ -590,7 +595,7 @@ export default function LandingPage() {
                 <div className="shrink-0 w-8 h-8 rounded-full bg-[#2545ff]/10 flex items-center justify-center mb-4">
                   <Terminal className="text-[#2545ff]" size={16} />
                 </div>
-                <h4 className="text-[#0c1754] font-semibold text-sm tracking-wider uppercase font-mono mb-2">Telemetry Logs</h4>
+                <h3 className="text-[#0c1754] font-semibold text-sm tracking-wider uppercase font-mono mb-2">Telemetry Logs</h3>
                 <p className="text-[#171417]/60 text-[12px] leading-[1.4]">
                   Streamed execution logging providing detailed diagnostic calculations.
                 </p>
@@ -632,6 +637,7 @@ export default function LandingPage() {
           </div>
         </ScrollReveal>
       </section>
+      </main>
 
       {/* 7. Footer (Full bleed, Boardroom Navy) */}
       <footer className="bg-[#0c1754] text-white/70 py-16 px-6 md:px-12">
@@ -650,19 +656,16 @@ export default function LandingPage() {
             <p className="text-[12px] max-w-md leading-relaxed text-white/50">
               An institutional-grade volumetric environment for exploring derivatives behavior. Deconstruct volatility smiles, simulate portfolio Greeks, and stress-test structures under regime shifts.
             </p>
-            <p className="text-[10px] font-mono text-white/35 pt-4">
+            <p className="text-[10px] font-mono text-white/60 pt-4">
               © {new Date().getFullYear()} OPTIXFLOW SYSTEMS INC. ALL RIGHTS RESERVED.
             </p>
           </div>
 
           {/* Footer Email subscription input */}
           <div className="flex flex-col items-start gap-4">
-            <h4 
-              style={{ fontFamily: "Arial, sans-serif" }}
-              className="text-white font-medium text-sm tracking-wide"
-            >
+            <h3 style={{ fontFamily: "Arial, sans-serif" }} className="text-white font-medium text-sm tracking-wide">
               SUBSCRIBE FOR DECAY PHYSICS UPDATES
-            </h4>
+            </h3>
             <form onSubmit={handleSubscribe} className="w-full max-w-md flex items-center gap-2">
               <div className="relative flex-1">
                 <input

@@ -6,7 +6,25 @@
 
 import { bsmPrice } from "../../quant/greeks/bsm";
 import { vectorizedSolveIV } from "../../quant/volatility/ivSolver";
-import { VectorizedIVInput } from "../../quant/volatility/types";
+import type { VectorizedIVInput, ValidatedIVPoint } from "../../quant/volatility/types";
+
+let solverWorker: Worker | null = null;
+let solveQueue: { resolve: (res: ValidatedIVPoint[]) => void, reject: (err: any) => void }[] = [];
+
+function getWorker(): Worker {
+  if (!solverWorker) {
+    solverWorker = new Worker(new URL('../../quant/volatility/ivWorker.ts', import.meta.url));
+    solverWorker.onmessage = (e) => {
+      const q = solveQueue.shift();
+      if (q) {
+        if (e.data.type === 'SUCCESS') q.resolve(e.data.results);
+        else q.reject(e.data.error);
+      }
+    };
+  }
+  return solverWorker;
+}
+
 
 export interface IVSurfacePoint {
   strike: number;       // Normalized strike (moneyness: K/S)
@@ -146,14 +164,14 @@ export function generateIVSurface(
 }
 
 /**
- * Fast IV update — recomputes all Z values in-place for a new avgIV.
- * Used on each ticking step to avoid re-instantiating the grid.
+ * Fast ASYNC IV update — ships the grid to the Web Worker to avoid blocking the UI thread.
+ * Returns a Promise that resolves when the worker replies.
  */
-export function updateIVSurface(
+export async function updateIVSurfaceAsync(
   grid: IVSurfaceGrid,
   avgIV: number,
   spot: number,
-): IVSurfaceGrid {
+): Promise<IVSurfaceGrid> {
   const params = getSmileParams(avgIV);
   
   const inputs: VectorizedIVInput[] = [];
@@ -177,7 +195,17 @@ export function updateIVSurface(
     });
   }
 
-  const solvedGrid = vectorizedSolveIV(inputs);
+  // Await the Web Worker!
+  const solvedGrid = await new Promise<ValidatedIVPoint[]>((resolve, reject) => {
+    if (typeof window === 'undefined') {
+      // Fallback for SSR/tests
+      resolve(vectorizedSolveIV(inputs));
+      return;
+    }
+    solveQueue.push({ resolve, reject });
+    getWorker().postMessage(inputs);
+  });
+
   
   let minIV = Infinity;
   let maxIV = -Infinity;
