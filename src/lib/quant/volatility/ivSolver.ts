@@ -19,7 +19,8 @@ export function solveIV(
   t: number,
   r: number = 0.05,
   type: "call" | "put",
-  q: number = 0.0
+  q: number = 0.0,
+  seedVol?: number
 ): IVSolverResult {
   // 1. Edge Case: Expired
   if (t <= 1e-8) {
@@ -35,23 +36,26 @@ export function solveIV(
     return { iv: 0, converged: false, iterations: 0, method: "failed", residualError: intrinsic - targetPrice, arbitrageViolation: true };
   }
 
-  // 3. Corrado-Miller Initialization Seed
-  let seedVol = 0.3; // Fallback
-  // Convert put to call equivalent for standard Corrado-Miller
-  const callPrice = type === "call" ? targetPrice : targetPrice + discountS - discountK;
-  const cDiff = callPrice - (discountS - discountK) / 2.0;
-  const discriminant = cDiff * cDiff - (Math.pow(discountS - discountK, 2) / Math.PI);
+  // 3. Corrado-Miller Initialization Seed (if no seed provided)
+  let initialVol = seedVol ?? 0.3; // Fallback
+  
+  if (seedVol === undefined) {
+    // Convert put to call equivalent for standard Corrado-Miller
+    const callPrice = type === "call" ? targetPrice : targetPrice + discountS - discountK;
+    const cDiff = callPrice - (discountS - discountK) / 2.0;
+    const discriminant = cDiff * cDiff - (Math.pow(discountS - discountK, 2) / Math.PI);
 
-  if (discriminant >= 0) {
-    const c = Math.sqrt(2 * Math.PI) / (discountS + discountK);
-    const cmVol = (c / Math.sqrt(t)) * (cDiff + Math.sqrt(discriminant));
-    if (!isNaN(cmVol) && cmVol > 0) {
-      seedVol = Math.min(Math.max(cmVol, MIN_VOL), MAX_VOL);
+    if (discriminant >= 0) {
+      const c = Math.sqrt(2 * Math.PI) / (discountS + discountK);
+      const cmVol = (c / Math.sqrt(t)) * (cDiff + Math.sqrt(discriminant));
+      if (!isNaN(cmVol) && cmVol > 0) {
+        initialVol = Math.min(Math.max(cmVol, MIN_VOL), MAX_VOL);
+      }
     }
   }
 
   // 4. Primary Engine: Newton-Raphson
-  let iv = seedVol;
+  let iv = initialVol;
   let iterations = 0;
   
   for (let i = 0; i < MAX_ITERATIONS; i++) {
@@ -179,3 +183,111 @@ function brentsMethod(
 
   return { iv: b, converged: false, iterations, method: "brent", residualError: fb };
 }
+
+import { VectorizedIVInput, ValidatedIVPoint } from "./types";
+
+/**
+ * Vectorized Parallel Map for IV Solving (designed for synchronous batching/Web Workers).
+ * Leverages "Solved Cluster" initial guess reuse to drop NR iterations from 4-6 to 1-2.
+ * Includes integrated Surface Intelligence (Liquidity, Monotonicity, Time Decay filters).
+ */
+export function vectorizedSolveIV(inputs: VectorizedIVInput[]): ValidatedIVPoint[] {
+  // Sort by Expiry (T) then by Strike (K) to create localized clusters
+  const sorted = [...inputs].sort((a, b) => {
+    if (Math.abs(a.t - b.t) > 1e-8) return a.t - b.t;
+    return a.strike - b.strike;
+  });
+
+  const results: ValidatedIVPoint[] = [];
+  
+  // Track previous solve states for guess reuse and calendar checks
+  let prevT: number | null = null;
+  let prevIV: number | undefined = undefined;
+  let prevCallPrice: number | null = null;
+  let prevStrike: number | null = null;
+
+  // Track the minimum IV per strike across expiries (for Calendar Arbitrage checks)
+  // Simplified calendar check: For a given strike, a longer T should typically not price 
+  // below a shorter T. We'll track the 'cheapest' price per strike seen so far.
+  // Actually, standard Calendar Arbitrage checks that C(T2, K) >= C(T1, K) where T2 > T1.
+  const maxPriceForStrike = new Map<number, number>();
+
+  for (let i = 0; i < sorted.length; i++) {
+    const point = sorted[i];
+
+    // Seed reuse logic: If we moved to a new expiry or skipped far away, drop the seed
+    if (prevT !== null && Math.abs(point.t - prevT) > 1e-8) {
+      prevIV = undefined; // Reset seed on new expiry
+      prevCallPrice = null; // Reset monotonicity tracker on new expiry
+      prevStrike = null;
+    }
+
+    const r = point.r ?? 0.05;
+    const q = point.q ?? 0.0;
+    
+    // 1. Solve IV with (or without) seeded guess
+    const solved = solveIV(point.targetPrice, point.spot, point.strike, point.t, r, point.type, q, prevIV);
+    
+    // Update tracking for the next point
+    if (solved.converged || solved.method === "brent") {
+      prevIV = solved.iv;
+    }
+    prevT = point.t;
+
+    // 2. Surface Intelligence: Liquidity Filter
+    let isLowConfidence = false;
+    if (point.bid !== undefined && point.ask !== undefined) {
+      const mid = (point.bid + point.ask) / 2;
+      const spread = point.ask - point.bid;
+      if (mid > 0 && (spread / mid) > 0.20) {
+        isLowConfidence = true; // Spread > 20% of price
+      }
+    }
+
+    // 3. Surface Intelligence: Monotonicity (Butterfly Arbitrage)
+    // For Calls: C(K1) >= C(K2) if K1 < K2
+    // For Puts: P(K1) <= P(K2) if K1 < K2
+    let butterflyArbitrage = false;
+    if (prevStrike !== null && prevCallPrice !== null && point.strike > prevStrike) {
+      if (point.type === "call" && point.targetPrice > prevCallPrice) {
+         butterflyArbitrage = true;
+      }
+      if (point.type === "put" && point.targetPrice < prevCallPrice) {
+         butterflyArbitrage = true;
+      }
+    }
+    prevStrike = point.strike;
+    prevCallPrice = point.targetPrice;
+
+    // 4. Surface Intelligence: Time Decay (Calendar Arbitrage)
+    let calendarArbitrage = false;
+    const existingMax = maxPriceForStrike.get(point.strike);
+    if (existingMax !== undefined) {
+      if (point.targetPrice < existingMax) {
+        // Longer dated option is cheaper than shorter dated option => Calendar Arbitrage
+        calendarArbitrage = true;
+      } else {
+        maxPriceForStrike.set(point.strike, point.targetPrice);
+      }
+    } else {
+      maxPriceForStrike.set(point.strike, point.targetPrice);
+    }
+
+    results.push({
+      ...solved,
+      id: point.id,
+      isLowConfidence,
+      butterflyArbitrage,
+      calendarArbitrage
+    });
+  }
+
+  // Restore original ordering
+  const idMap = new Map<string, ValidatedIVPoint>();
+  for (const r of results) {
+    idMap.set(r.id, r);
+  }
+
+  return inputs.map(input => idMap.get(input.id)!);
+}
+

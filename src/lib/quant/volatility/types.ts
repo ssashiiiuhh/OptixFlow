@@ -30,3 +30,23 @@ export interface IVSolverResult {
   residualError: number;
   arbitrageViolation?: boolean;
 }
+
+export interface VectorizedIVInput {
+  id: string;
+  targetPrice: number;
+  spot: number;
+  strike: number;
+  t: number;
+  type: "call" | "put";
+  bid?: number;
+  ask?: number;
+  r?: number;
+  q?: number;
+}
+
+export interface ValidatedIVPoint extends IVSolverResult {
+  id: string;
+  isLowConfidence: boolean;
+  butterflyArbitrage: boolean;
+  calendarArbitrage: boolean;
+}
