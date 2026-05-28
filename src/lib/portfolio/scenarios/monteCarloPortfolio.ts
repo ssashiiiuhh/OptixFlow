@@ -74,21 +74,31 @@ export function runPortfolioMonteCarlo(
   // Sort outcomes ascending (worst outcomes at the beginning)
   pnlOutcomes.sort((a, b) => a - b);
 
+  // Exact Linear Interpolation for Percentiles
+  const getQuantile = (arr: number[], p: number) => {
+    const idx = (arr.length - 1) * p;
+    const lower = Math.floor(idx);
+    const upper = Math.ceil(idx);
+    const weight = idx - lower;
+    if (lower === upper) return arr[lower];
+    return arr[lower] * (1 - weight) + arr[upper] * weight;
+  };
+
   // Value at Risk (VaR): quantile indexes
-  const index95 = Math.floor(numPaths * 0.05); // 95% worst index
-  const index99 = Math.floor(numPaths * 0.01); // 99% worst index
+  const index95 = Math.floor((numPaths - 1) * 0.05); // For CVaR slice
+  const index99 = Math.floor((numPaths - 1) * 0.01); // For CVaR slice
 
   // VaR values are positive losses
-  const var95 = -pnlOutcomes[index95];
-  const var99 = -pnlOutcomes[index99];
+  const var95 = -getQuantile(pnlOutcomes, 0.05);
+  const var99 = -getQuantile(pnlOutcomes, 0.01);
 
   // Conditional Value at Risk (CVaR): Average loss beyond VaR threshold
-  const worst95Outcomes = pnlOutcomes.slice(0, index95);
+  const worst95Outcomes = pnlOutcomes.slice(0, index95 + 1);
   const cvar95 = worst95Outcomes.length > 0 
     ? -worst95Outcomes.reduce((a, b) => a + b, 0) / worst95Outcomes.length
     : var95;
 
-  const worst99Outcomes = pnlOutcomes.slice(0, index99);
+  const worst99Outcomes = pnlOutcomes.slice(0, index99 + 1);
   const cvar99 = worst99Outcomes.length > 0
     ? -worst99Outcomes.reduce((a, b) => a + b, 0) / worst99Outcomes.length
     : var99;

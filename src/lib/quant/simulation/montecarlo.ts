@@ -32,19 +32,29 @@ export function simulatePaths(config: MonteCarloConfig): MonteCarloResult {
 
   const paths: number[][] = [];
   const terminalPrices: number[] = [];
+  const halfPaths = Math.ceil(pathsCount / 2);
 
-  for (let p = 0; p < pathsCount; p++) {
-    const path: number[] = [spot];
-    let currentSpot = spot;
+  for (let p = 0; p < halfPaths; p++) {
+    const path1: number[] = [spot];
+    const path2: number[] = [spot];
+    let currentSpot1 = spot;
+    let currentSpot2 = spot;
 
     for (let s = 1; s <= stepsCount; s++) {
       const rand = randomNormal();
-      currentSpot = currentSpot * Math.exp(drift + vol * rand);
-      path.push(currentSpot);
+      currentSpot1 = currentSpot1 * Math.exp(drift + vol * rand);
+      currentSpot2 = currentSpot2 * Math.exp(drift + vol * -rand);
+      path1.push(currentSpot1);
+      path2.push(currentSpot2);
     }
 
-    paths.push(path);
-    terminalPrices.push(currentSpot);
+    paths.push(path1);
+    terminalPrices.push(currentSpot1);
+    
+    if (paths.length < pathsCount) {
+      paths.push(path2);
+      terminalPrices.push(currentSpot2);
+    }
   }
 
   // Sort terminal prices to calculate statistics
@@ -58,10 +68,19 @@ export function simulatePaths(config: MonteCarloConfig): MonteCarloResult {
   const sqDiffSum = sortedPrices.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0);
   const stdDev = Math.sqrt(sqDiffSum / pathsCount);
 
-  // Percentiles
-  const p10 = sortedPrices[Math.floor(pathsCount * 0.10)];
-  const p50 = sortedPrices[Math.floor(pathsCount * 0.50)];
-  const p90 = sortedPrices[Math.floor(pathsCount * 0.90)];
+  // Exact Linear Interpolation for Percentiles
+  const getQuantile = (arr: number[], p: number) => {
+    const idx = (arr.length - 1) * p;
+    const lower = Math.floor(idx);
+    const upper = Math.ceil(idx);
+    const weight = idx - lower;
+    if (lower === upper) return arr[lower];
+    return arr[lower] * (1 - weight) + arr[upper] * weight;
+  };
+
+  const p10 = getQuantile(sortedPrices, 0.10);
+  const p50 = getQuantile(sortedPrices, 0.50);
+  const p90 = getQuantile(sortedPrices, 0.90);
 
   return {
     paths,

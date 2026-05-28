@@ -21,3 +21,12 @@ export interface VolatilityParams {
   skewTilt: number;
   isBackwardation: boolean;
 }
+
+export interface IVSolverResult {
+  iv: number;
+  converged: boolean;
+  iterations: number;
+  method: "newton" | "brent" | "failed";
+  residualError: number;
+  arbitrageViolation?: boolean;
+}
