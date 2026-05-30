@@ -21,11 +21,13 @@ export function calculateLegGreeks(
       theta: 0,
       vega: 0,
       rho: 0,
+      vanna: 0,
+      volga: 0,
     };
   }
 
   if (leg.type === "cash") {
-    return { delta: 0, gamma: 0, theta: 0, vega: 0, rho: 0 };
+    return { delta: 0, gamma: 0, theta: 0, vega: 0, rho: 0, vanna: 0, volga: 0 };
   }
 
   // Options: each contract represents 100 shares.
@@ -38,6 +40,8 @@ export function calculateLegGreeks(
     theta: greeks.theta * qty * sign * 100,
     vega: greeks.vega * qty * sign * 100,
     rho: greeks.rho * qty * sign * 100,
+    vanna: greeks.vanna * qty * sign * 100,
+    volga: greeks.volga * qty * sign * 100,
   };
 }
 
@@ -52,8 +56,10 @@ export function aggregateGreeks(greeksList: PortfolioGreeks[]): PortfolioGreeks 
       theta: acc.theta + curr.theta,
       vega: acc.vega + curr.vega,
       rho: acc.rho + curr.rho,
+      vanna: acc.vanna + curr.vanna,
+      volga: acc.volga + curr.volga,
     }),
-    { delta: 0, gamma: 0, theta: 0, vega: 0, rho: 0 }
+    { delta: 0, gamma: 0, theta: 0, vega: 0, rho: 0, vanna: 0, volga: 0 }
   );
 
   return {
@@ -62,5 +68,7 @@ export function aggregateGreeks(greeksList: PortfolioGreeks[]): PortfolioGreeks 
     theta: Math.round(aggregated.theta * 100) / 100,
     vega: Math.round(aggregated.vega * 100) / 100,
     rho: Math.round(aggregated.rho * 100) / 100,
+    vanna: Math.round(aggregated.vanna * 100) / 100,
+    volga: Math.round(aggregated.volga * 100) / 100,
   };
 }

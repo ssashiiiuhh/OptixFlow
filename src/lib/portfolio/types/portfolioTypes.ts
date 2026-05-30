@@ -23,6 +23,8 @@ export interface PortfolioGreeks {
   theta: number;
   vega: number;
   rho: number;
+  vanna: number;
+  volga: number;
 }
 
 export interface StrategyHoldingGroup {

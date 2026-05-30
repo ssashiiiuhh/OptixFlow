@@ -43,7 +43,7 @@ export function revalueStrategyHolding(
         gamma: 0,
         theta: 0,
         vega: 0,
-        rho: 0,
+        rho: 0, vanna: 0, volga: 0,
       });
     } else {
       // Option revaluation
@@ -71,6 +71,8 @@ export function revalueStrategyHolding(
         theta: g.theta * qty * sign * 100,
         vega: g.vega * qty * sign * 100,
         rho: g.rho * qty * sign * 100,
+        vanna: g.vanna * qty * sign * 100,
+        volga: g.volga * qty * sign * 100,
       });
     }
   });
@@ -84,8 +86,10 @@ export function revalueStrategyHolding(
       theta: acc.theta + curr.theta,
       vega: acc.vega + curr.vega,
       rho: acc.rho + curr.rho,
+      vanna: acc.vanna + curr.vanna,
+      volga: acc.volga + curr.volga,
     }),
-    { delta: 0, gamma: 0, theta: 0, vega: 0, rho: 0 }
+    { delta: 0, gamma: 0, theta: 0, vega: 0, rho: 0, vanna: 0, volga: 0 }
   );
 
   return {

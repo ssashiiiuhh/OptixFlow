@@ -44,7 +44,7 @@ export function bsmGreeks(
   q: number = 0.0
 ): GreekSet {
   if (spot <= 0 || strike <= 0 || iv <= 0) {
-    return { delta: 0, gamma: 0, theta: 0, vega: 0, rho: 0 };
+    return { delta: 0, gamma: 0, theta: 0, vega: 0, rho: 0, vanna: 0, volga: 0 };
   }
 
   // Extreme boundary limits for expiry T -> 0
@@ -56,7 +56,9 @@ export function bsmGreeks(
       gamma: 0,
       theta: 0,
       vega: 0,
-      rho: 0
+      rho: 0,
+      vanna: 0,
+      volga: 0
     };
   }
 
@@ -94,5 +96,9 @@ export function bsmGreeks(
     ? (strike * t * expRT * normCDF(d2)) / 100
     : (-strike * t * expRT * normCDF(-d2)) / 100;
 
-  return { delta, gamma, theta, vega, rho };
+  // Vanna and Volga using user's analytical formulas
+  const vanna = -pdfD1 * (d2 / iv);
+  const volga = vega * (d1 * d2) / iv;
+
+  return { delta, gamma, theta, vega, rho, vanna, volga };
 }

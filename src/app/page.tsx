@@ -28,8 +28,8 @@ import {
 import dynamic from "next/dynamic";
 import { PortfolioProvider } from "@/components/portfolio/PortfolioContext";
 
-const VolatilitySurface3D = dynamic(() => import("@/components/portfolio/VolatilitySurface3D"), { ssr: false });
-const DeltaHedger = dynamic(() => import("@/components/portfolio/DeltaHedger"), { ssr: false });
+const VolatilitySurface3D = dynamic(() => import("@/components/analytics/VolatilitySurface3D"), { ssr: false });
+const DeltaHedger = dynamic(() => import("@/components/trade-intel/DeltaHedger"), { ssr: false });
 const PortfolioConsole = dynamic(() => import("@/components/portfolio/PortfolioConsole"), { ssr: false });
 const MarketPlayback = dynamic(() => import("@/components/portfolio/MarketPlayback"), { ssr: false });
 
@@ -120,7 +120,7 @@ export default function LandingPage() {
           <Link href="/analytics" className="text-[#222222] hover:text-[#2545ff] font-medium text-sm transition-colors uppercase tracking-wider">
             ANALYTICS
           </Link>
-          <Link href="/intelligence" className="text-[#222222] hover:text-[#2545ff] font-medium text-sm transition-colors uppercase tracking-wider">
+          <Link href="/trade-intel" className="text-[#222222] hover:text-[#2545ff] font-medium text-sm transition-colors uppercase tracking-wider">
             TRADE INTEL
           </Link>
           <Link href="/portfolio" className="text-[#222222] hover:text-[#2545ff] font-medium text-sm transition-colors uppercase tracking-wider">
@@ -176,7 +176,7 @@ export default function LandingPage() {
           {/* CTAs */}
           <div className="mt-8 flex flex-wrap gap-4">
             <Link
-              href="/intelligence"
+              href="/trade-intel"
               className="bg-[#2545ff] text-white hover:bg-[#1a3aff] text-sm font-medium py-[11.2px] px-[32px] rounded-[100px] transition-all flex items-center gap-2 cursor-pointer text-center"
             >
               <span>Initialize Console</span>
@@ -310,7 +310,7 @@ export default function LandingPage() {
                   </p>
                   <div className="pt-2">
                     <Link
-                      href="/intelligence"
+                      href="/trade-intel"
                       className="inline-flex items-center gap-1 text-sm font-semibold text-[#2545ff] hover:underline"
                     >
                       <span>Launch Intelligence Console</span>
@@ -627,7 +627,7 @@ export default function LandingPage() {
 
             <div className="mt-8 flex justify-center">
               <Link
-                href="/intelligence"
+                href="/trade-intel"
                 className="bg-[#2545ff] text-white hover:bg-[#1a3aff] text-sm font-medium py-[11.2px] px-[32px] rounded-[100px] transition-all flex items-center gap-2 cursor-pointer"
               >
                 <span>Initialize System</span>
@@ -688,7 +688,7 @@ export default function LandingPage() {
             <div className="flex flex-wrap gap-x-6 gap-y-2 text-[11px] text-white/50 pt-4">
               <Link href="/strategy" className="hover:text-white transition-colors">STRATEGY LAB</Link>
               <Link href="/analytics" className="hover:text-white transition-colors">ANALYTICS</Link>
-              <Link href="/intelligence" className="hover:text-white transition-colors">TRADE INTEL</Link>
+              <Link href="/trade-intel" className="hover:text-white transition-colors">TRADE INTEL</Link>
               <Link href="/portfolio" className="hover:text-white transition-colors">PORTFOLIO</Link>
               <Link href="/playbook" className="hover:text-white transition-colors">PLAYBOOK</Link>
             </div>

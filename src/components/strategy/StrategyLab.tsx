@@ -11,6 +11,8 @@ import {
   ShieldAlert, ShieldCheck
 } from "lucide-react";
 import TactileInput from "@/components/ui/TactileInput";
+import ScenarioMatrix from "@/components/strategy/ScenarioMatrix";
+import SavedStrategies from "@/components/strategy/SavedStrategies";
 import { useScenarioHistory, ScenarioState } from "@/hooks/useScenarioHistory";
 import {
   buildDynamicChartSnapshot, computeDynamicMetrics, getStrategyLegs,
@@ -1291,8 +1293,18 @@ export default function StrategyLab() {
           </div>
         </div>
       </div>
+      ) : activeTab === "SCENARIO MATRIX" ? (
+        <ScenarioMatrix state={state} initialSpot={initialSpot} initialIv={initialIv} />
+      ) : activeTab === "SAVED STRATEGIES" ? (
+        <SavedStrategies 
+          onLoadStrategy={(data) => {
+            update(data);
+            commit(data);
+            setActiveTab("STRATEGY CONSTRUCTOR");
+          }} 
+        />
       ) : (
-        <div className="relative z-10 flex-1 flex items-center justify-center text-white/50 font-mono text-sm">
+        <div className="flex-1 overflow-y-auto px-5 py-4 relative z-10 flex items-center justify-center text-white/50 font-mono text-sm">
           {activeTab} under construction...
         </div>
       )}

@@ -4,30 +4,40 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AlertTriangle, Activity } from "lucide-react";
 import { usePortfolio } from "../portfolio/PortfolioContext";
-import type { IVSurfaceGrid } from "@/lib/portfolio/surface/ivSurface";
+import type { IVSurfaceGrid } from "@/lib/quant/surface/ivSurface";
 
 export default function SurfaceTelemetry({ grid }: { grid: IVSurfaceGrid | null }) {
   const { addAiNarrationLine } = usePortfolio();
-  const [worstPoint, setWorstPoint] = useState<{ strike: number; dte: number; viol: number } | null>(null);
+  const [worstPoint, setWorstPoint] = useState<{ strike: number; dte: number; viol: number; type: string } | null>(null);
 
   useEffect(() => {
     if (!grid) return;
 
-    let maxViol = 0;
+    let maxWeightedScore = 0;
     let worst = null;
+    let rawViol = 0;
+    let violType = "";
 
     for (let i = 0; i < grid.points.length; i++) {
       const p = grid.points[i];
-      if (p.violationMagnitude && p.violationMagnitude > maxViol) {
-        maxViol = p.violationMagnitude;
+      const cViol = p.cViol || 0;
+      const bViol = p.bViol || 0;
+      
+      // Calendar arbitrage is heavily penalized over butterfly wing convexity
+      const weightedScore = (cViol * 5.0) + bViol;
+      
+      if (weightedScore > maxWeightedScore) {
+        maxWeightedScore = weightedScore;
         worst = p;
+        rawViol = Math.max(cViol, bViol);
+        violType = cViol > bViol ? "CALENDAR (TIME)" : "BUTTERFLY (SKEW)";
       }
     }
 
-    if (maxViol > 0 && worst) {
-      setWorstPoint({ strike: worst.strike, dte: worst.dte, viol: maxViol });
-      if (maxViol > 0.8) {
-        addAiNarrationLine(`[SURFACE HAZARD] Severe arbitrage violation detected at Strike $${Math.round(worst.strike)}, ${Math.round(worst.dte)} DTE (Magnitude: ${maxViol.toFixed(2)})`);
+    if (maxWeightedScore > 0 && worst && rawViol > 0) {
+      setWorstPoint({ strike: worst.strike, dte: worst.dte, viol: rawViol, type: violType });
+      if (rawViol > 0.8) {
+        addAiNarrationLine(`[SURFACE HAZARD] Severe ${violType} arbitrage violation detected at Strike $${Math.round(worst.strike)}, ${Math.round(worst.dte)} DTE (Magnitude: ${rawViol.toFixed(2)})`);
       }
     } else {
       setWorstPoint(null);

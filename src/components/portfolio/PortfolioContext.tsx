@@ -136,6 +136,7 @@ interface PortfolioContextType {
 
   // Quant data
   holdings: StrategyHolding[];
+  strategyGroups: StrategyHoldingGroup[];
   portfolioGreeks: PortfolioGreeks;
   greeksRadar: { axis: string; value: number; raw: number; color: string }[];
   exposureSegments: ExposureSegment[];
@@ -476,11 +477,11 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     const narration = generatePortfolioNarration({
       holdingsCount: strategyGroups.length,
       assetsCount: Object.keys(spotPrices).length,
-      netGreeks: { delta: totalDelta, gamma: totalGamma, theta: totalTheta, vega: totalVega, rho: 0 },
+      netGreeks: { delta: totalDelta, gamma: totalGamma, theta: totalTheta, vega: totalVega, rho: 0, vanna: 0, volga: 0 },
       dirExposure, volExposure, convMapping, topology,
     });
 
-    return { holdings, portfolioGreeks, greeksRadar, exposureSegments, scenarios, varMetrics: mcResult.varMetrics, meanPnl: mcResult.meanPnl, expectedStdDev: mcResult.expectedStdDev, narration };
+    return { strategyGroups, holdings, portfolioGreeks, greeksRadar, exposureSegments, scenarios, varMetrics: mcResult.varMetrics, meanPnl: mcResult.meanPnl, expectedStdDev: mcResult.expectedStdDev, narration };
   }, [spotPrices, ivs, simulatedHedgeDelta, isBetaWeighted]);
 
   // ── Edge-Case Alert System (The Cognition Feed) ──────────────────────────
@@ -637,6 +638,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     <PortfolioContext.Provider
       value={{
         spotPrices, ivs, isTicking, setIsTicking, priceDirections,
+        strategyGroups: quantData.strategyGroups,
         holdings: quantData.holdings,
         portfolioGreeks: quantData.portfolioGreeks,
         greeksRadar: quantData.greeksRadar,

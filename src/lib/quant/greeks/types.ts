@@ -7,6 +7,8 @@ export interface GreekSet {
   theta: number;
   vega: number;
   rho: number;
+  vanna: number;
+  volga: number;
 }
 
 export interface OptionParams {

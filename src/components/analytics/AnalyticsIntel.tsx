@@ -733,7 +733,7 @@ export default function AnalyticsIntel() {
           {/* Interactive display panel */}
           <div className="h-68 shrink-0 border-b border-white/5 relative z-10 bg-black/20 flex items-center justify-center overflow-hidden">
             {viewMode === "3d_surface" ? (
-              <VolatilitySurface3D asset={activeAsset} regimeColor={activeRegime.color} />
+              <VolatilitySurface3D />
             ) : viewMode === "2d_smile" ? (
               <div className="w-full h-full p-4 pl-0 pr-6">
                 <ResponsiveContainer width="100%" height="100%">

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import AppShellLayout from "@/components/layout/AppShellLayout";
-import TradeIntelDashboard from "@/components/intelligence/TradeIntelDashboard";
+import TradeIntelDashboard from "@/components/trade-intel/TradeIntelDashboard";
 
 export const metadata: Metadata = {
   title: "Trade Intelligence Cockpit",

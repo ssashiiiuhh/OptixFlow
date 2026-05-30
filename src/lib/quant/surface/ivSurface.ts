@@ -21,8 +21,9 @@ import {
 export function interpolateSVISlices(
   k: number,
   targetT: number,
-  slices: SVISlice[]
-): { w: number; bViol: number; cViol: number } {
+  slices: SVISlice[],
+  out: { w: number; bViol: number; cViol: number }
+): void {
   let leftSlice = slices[0];
   let rightSlice = slices[slices.length - 1];
 
@@ -37,24 +38,22 @@ export function interpolateSVISlices(
   const w1 = sviVariance(k, leftSlice);
   const w2 = sviVariance(k, rightSlice);
   
-  let w: number;
   let cViol = 0;
 
   if (targetT <= leftSlice.T) {
-    w = w1 * (targetT / leftSlice.T);
+    out.w = w1 * (targetT / leftSlice.T);
   } else if (targetT >= rightSlice.T) {
-    w = w2 * (targetT / rightSlice.T);
+    out.w = w2 * (targetT / rightSlice.T);
   } else {
     const tRatio = (targetT - leftSlice.T) / (rightSlice.T - leftSlice.T);
-    w = w1 + tRatio * (w2 - w1);
+    out.w = w1 + tRatio * (w2 - w1);
     cViol = calendarViolation(w1, w2);
   }
 
   const bViol1 = butterflyViolation(k, leftSlice);
   const bViol2 = butterflyViolation(k, rightSlice);
-  const bViol = Math.max(bViol1, bViol2);
-
-  return { w, bViol, cViol };
+  out.bViol = Math.max(bViol1, bViol2);
+  out.cViol = cViol;
 }
 
 export interface IVSurfacePoint {
@@ -64,8 +63,8 @@ export interface IVSurfacePoint {
   x: number;            // Grid index x
   y: number;            // Grid index y
   isLowConfidence?: boolean;
-  butterflyArbitrage?: boolean;
-  calendarArbitrage?: boolean;
+  bViol?: number;
+  cViol?: number;
   violationMagnitude?: number;
 }
 
@@ -113,6 +112,7 @@ export function generateIVSurface(
 
   let minIV = Infinity;
   let maxIV = -Infinity;
+  const outInterp = { w: 0, bViol: 0, cViol: 0 };
 
   let nodeIndex = 0;
   for (let xi = 0; xi < nStrikes; xi++) {
@@ -125,11 +125,10 @@ export function generateIVSurface(
       const F = computeForwardPrice(spot, RISK_FREE_RATE, DIVIDEND_YIELD, T);
       const k = computeLogMoneyness(K, F);
 
-      const { w, bViol, cViol } = interpolateSVISlices(k, T, DEFAULT_SVI_STACK);
+      interpolateSVISlices(k, T, DEFAULT_SVI_STACK, outInterp);
 
-      const iv = varianceToIV(w, T);
-      
-      const maxViol = Math.max(bViol, cViol);
+      const iv = varianceToIV(outInterp.w, T);
+      const maxViol = Math.max(outInterp.bViol, outInterp.cViol);
       
       ivBuffer[nodeIndex] = iv;
       violationBuffer[nodeIndex] = maxViol;
@@ -143,8 +142,8 @@ export function generateIVSurface(
         iv,
         x: xi,
         y: yi,
-        butterflyArbitrage: bViol > 0,
-        calendarArbitrage: cViol > 0,
+        bViol: outInterp.bViol,
+        cViol: outInterp.cViol,
         violationMagnitude: maxViol,
       });
       
@@ -164,11 +163,60 @@ export function generateIVSurface(
 /**
  * Fast ASYNC IV update — now runs synchronously due to O(1) SVI efficiency,
  * wrapped in a Promise to maintain API compatibility.
+ * Mutates the grid in place to hit the < 1ms target with 0 allocations.
  */
 export async function updateIVSurfaceAsync(
   grid: IVSurfaceGrid,
   avgIV: number,
   spot: number,
 ): Promise<IVSurfaceGrid> {
-  return generateIVSurface(avgIV, spot, grid.strikes.length, grid.dtes.length);
+  const nStrikes = grid.strikes.length;
+  const nDTEs = grid.dtes.length;
+  
+  const RISK_FREE_RATE = 0.05;
+  const DIVIDEND_YIELD = 0.0;
+  
+  let minIV = Infinity;
+  let maxIV = -Infinity;
+
+  const outInterp = { w: 0, bViol: 0, cViol: 0 };
+  
+  // Update points mapping in case they were sorted
+  // Actually, nodes in ivBuffer map to points directly if we loop identically as creation?
+  // Wait, generateIVSurface sorts points at the end!
+  // To avoid issues, we should just iterate through `grid.points`.
+  
+  for (let i = 0; i < grid.points.length; i++) {
+    const pt = grid.points[i];
+    const T = pt.dte / 365.25;
+    const K = spot * (1 + pt.strike);
+    
+    const F = computeForwardPrice(spot, RISK_FREE_RATE, DIVIDEND_YIELD, T);
+    const k = computeLogMoneyness(K, F);
+
+    interpolateSVISlices(k, T, DEFAULT_SVI_STACK, outInterp);
+    
+    const iv = varianceToIV(outInterp.w, T);
+    const maxViol = Math.max(outInterp.bViol, outInterp.cViol);
+    
+    // We must find the correct nodeIndex for the buffers if they are mapped by xi, yi.
+    // In generateIVSurface: nodeIndex = xi * nDTEs + yi
+    const nodeIndex = pt.x * nDTEs + pt.y;
+    
+    grid.ivBuffer[nodeIndex] = iv;
+    grid.violationBuffer[nodeIndex] = maxViol;
+    
+    pt.iv = iv;
+    pt.bViol = outInterp.bViol;
+    pt.cViol = outInterp.cViol;
+    pt.violationMagnitude = maxViol;
+
+    minIV = Math.min(minIV, iv);
+    maxIV = Math.max(maxIV, iv);
+  }
+
+  grid.minIV = minIV;
+  grid.maxIV = maxIV;
+
+  return grid;
 }

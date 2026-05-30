@@ -41,6 +41,8 @@ import {
 } from "recharts";
 
 import ThesisConstructor from "./ThesisConstructor";
+import PortfolioGreeks from "./PortfolioGreeks";
+import DeltaHedger from "./DeltaHedger";
 import {
   ThesisInput,
   StrategyIntelResult,
@@ -392,11 +394,17 @@ export default function TradeIntelDashboard() {
         </div>
       </div>
 
+      {/* Portfolio Greeks Radar Header */}
+      <div className="relative z-10 px-5 pt-5 shrink-0">
+        <PortfolioGreeks />
+      </div>
+
       {/* Main Viewport Grid */}
       <div className="flex-1 h-0 grid grid-cols-1 lg:grid-cols-12 gap-5 p-5 min-h-0 relative z-10 overflow-y-auto lg:overflow-hidden">
         
-        {/* Left Column: Thesis Constructor Cockpit (col-span-4 / 3) */}
+        {/* Left Column: DeltaHedger & Thesis Constructor (col-span-4 / 3) */}
         <div className="lg:col-span-4 xl:col-span-3 flex flex-col gap-4 lg:max-h-[calc(100vh-150px)] overflow-y-auto pr-0 lg:pr-1 shrink-0">
+          <DeltaHedger />
           <ThesisConstructor onChange={setThesis} />
 
           {/* Active Regime HUD */}

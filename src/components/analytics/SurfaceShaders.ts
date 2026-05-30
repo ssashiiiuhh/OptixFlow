@@ -39,13 +39,22 @@ void main() {
   vec3 baseColor = vColor;
   vec3 warningColor = vec3(1.0, 0.0, 1.0); // Bright Magenta/Red
   
+  // Non-linear ramp with dead-zone
+  float severity = 0.0;
+  if (vViolation > 0.01) {
+    // scale 0.01 -> 1.0 to 0.0 -> 1.0
+    float normalizedViol = clamp((vViolation - 0.01) / 0.99, 0.0, 1.0);
+    // non-linear exponential ramp
+    severity = pow(normalizedViol, 1.5); 
+  }
+  
   // Blend based on violation magnitude
-  vec3 finalColor = mix(baseColor, warningColor, vViolation);
+  vec3 finalColor = mix(baseColor, warningColor, severity);
   
   // Add pulse effect if violation is severe
   if (vViolation > 0.8) {
     float pulse = sin(uTime * 10.0) * 0.5 + 0.5;
-    finalColor = mix(finalColor, vec3(1.0, 0.0, 0.0), pulse * 0.5); // Pulse to bright red
+    finalColor = mix(finalColor, vec3(1.0, 0.0, 0.0), pulse * 0.5 * severity); // Pulse to bright red
   }
   
   // Basic lighting (phong-like pseudo lighting)

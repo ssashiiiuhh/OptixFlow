@@ -7,7 +7,7 @@
 
 import { motion, AnimatePresence } from "framer-motion";
 import { Shield, ShieldAlert, ShieldCheck, ShieldOff, Zap, TrendingUp, TrendingDown, AlertTriangle } from "lucide-react";
-import { usePortfolio } from "./PortfolioContext";
+import { usePortfolio } from "../portfolio/PortfolioContext";
 import { cn } from "@/lib/utils";
 import TactileInput from "@/components/ui/TactileInput";
 
