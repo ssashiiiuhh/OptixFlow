@@ -3,6 +3,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { Activity, Bell, RefreshCw, Wifi } from "lucide-react";
 import { useEffect, useState } from "react";
+import { usePortfolioSafe } from "../portfolio/PortfolioContext";
 
 // ── Live Ticker Data ─────────────────────────
 
@@ -91,7 +92,8 @@ function TickerTape() {
 // ── Live Status ──────────────────────────────
 
 function LiveStatus() {
-  const [isLive, setIsLive] = useState(true);
+  const portfolio = usePortfolioSafe();
+  const isLive = portfolio ? portfolio.isTicking : true;
 
   return (
     <div className="flex items-center gap-1.5">
@@ -112,8 +114,17 @@ function LiveStatus() {
 // ── Main Topbar ──────────────────────────────
 
 export default function Topbar() {
+  const portfolio = usePortfolioSafe();
+  const isLive = portfolio ? portfolio.isTicking : true;
+  
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [lastSeenNarration, setLastSeenNarration] = useState(0);
+
+  const narrationLines = portfolio?.aiNarrationLines || [];
+  const hasNewNotifications = narrationLines.length > lastSeenNarration;
+
   return (
-    <header className="h-14 glass border-b border-[var(--ox-border-default)] flex items-center gap-4 px-4 shrink-0 z-10">
+    <header className="h-14 glass border-b border-[var(--ox-border-default)] flex items-center gap-4 px-4 shrink-0 z-10 relative">
       {/* Live indicator */}
       <LiveStatus />
 
@@ -126,33 +137,88 @@ export default function Topbar() {
       {/* Right-side actions */}
       <div className="ml-auto flex items-center gap-1">
         {/* Connection status */}
-        <div className="flex items-center gap-1.5 px-2 py-1 rounded-md">
-          <Wifi size={12} className="text-[var(--ox-accent-green)]" />
+        <div 
+          className="flex items-center gap-1.5 px-2 py-1 rounded-md cursor-pointer hover:bg-white/[0.02]"
+          onClick={() => portfolio?.setIsTicking(!isLive)}
+        >
+          <Wifi size={12} className={isLive ? "text-[var(--ox-accent-green)]" : "text-[var(--ox-text-muted)]"} />
           <span className="text-[10px] text-[var(--ox-text-muted)] hidden sm:block">
-            Connected
+            {isLive ? "Connected" : "Disconnected"}
           </span>
         </div>
 
         {/* Refresh */}
-        <button className="p-2 rounded-lg text-[var(--ox-text-muted)] hover:text-[var(--ox-text-primary)] hover:bg-white/[0.04] transition-colors">
-          <RefreshCw size={14} />
+        <button 
+          onClick={() => portfolio?.manualTick()}
+          className="p-2 rounded-lg text-[var(--ox-text-muted)] hover:text-[var(--ox-text-primary)] hover:bg-white/[0.04] transition-colors"
+          title="Force Tick"
+        >
+          <RefreshCw size={14} className={isLive ? "" : "opacity-50"} />
         </button>
 
         {/* Activity */}
-        <button className="p-2 rounded-lg text-[var(--ox-text-muted)] hover:text-[var(--ox-text-primary)] hover:bg-white/[0.04] transition-colors">
+        <button 
+          onClick={() => portfolio?.setIsTicking(!isLive)}
+          className={`p-2 rounded-lg transition-colors ${
+            isLive 
+              ? "text-[var(--ox-accent-cyan)] hover:bg-white/[0.04]" 
+              : "text-[var(--ox-text-muted)] hover:text-[var(--ox-text-primary)] hover:bg-white/[0.04]"
+          }`}
+          title={isLive ? "Pause Engine" : "Start Engine"}
+        >
           <Activity size={14} />
         </button>
 
         {/* Notifications */}
-        <button className="relative p-2 rounded-lg text-[var(--ox-text-muted)] hover:text-[var(--ox-text-primary)] hover:bg-white/[0.04] transition-colors">
-          <Bell size={14} />
-          <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-[var(--ox-accent-cyan)] rounded-full animate-pulse-glow" />
-        </button>
+        <div className="relative">
+          <button 
+            onClick={() => {
+              setShowNotifications(!showNotifications);
+              if (!showNotifications) setLastSeenNarration(narrationLines.length);
+            }}
+            className="relative p-2 rounded-lg text-[var(--ox-text-muted)] hover:text-[var(--ox-text-primary)] hover:bg-white/[0.04] transition-colors"
+          >
+            <Bell size={14} />
+            {hasNewNotifications && (
+              <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-[var(--ox-accent-cyan)] rounded-full animate-pulse-glow" />
+            )}
+          </button>
+
+          {/* Notification Popover */}
+          <AnimatePresence>
+            {showNotifications && (
+              <motion.div
+                initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                className="absolute right-0 top-12 w-64 glass border border-[var(--ox-border-default)] rounded-xl p-3 shadow-2xl z-50 flex flex-col gap-2 bg-black/90 backdrop-blur-xl"
+              >
+                <div className="text-[10px] font-mono text-[var(--ox-text-muted)] uppercase tracking-wider mb-1">
+                  Recent Alerts
+                </div>
+                {narrationLines.length === 0 ? (
+                  <div className="text-[11px] text-[var(--ox-text-muted)]">No active notifications.</div>
+                ) : (
+                  <div className="flex flex-col gap-2 max-h-64 overflow-y-auto pr-1 custom-scrollbar">
+                    {narrationLines.slice(-5).reverse().map((line, i) => (
+                      <div key={i} className="text-[11px] text-[var(--ox-text-primary)] leading-tight border-l-2 border-[var(--ox-accent-cyan)] pl-2">
+                        {line.replace('__STREAMING__', '')}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
 
         {/* Avatar placeholder */}
-        <div className="ml-1 w-7 h-7 rounded-full bg-gradient-to-br from-[var(--ox-accent-cyan)] to-[#7c3aed] flex items-center justify-center text-[10px] font-bold text-white">
+        <button 
+          className="ml-1 w-7 h-7 rounded-full bg-gradient-to-br from-[var(--ox-accent-cyan)] to-[#7c3aed] flex items-center justify-center text-[10px] font-bold text-white hover:scale-105 transition-transform"
+          title="Account Settings"
+        >
           Q
-        </div>
+        </button>
       </div>
     </header>
   );
