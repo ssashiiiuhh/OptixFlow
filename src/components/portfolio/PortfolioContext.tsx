@@ -119,6 +119,9 @@ export interface AppSettings {
   aiAggression: "low" | "medium" | "high";
   highContrast: boolean;
   showTooltips: boolean;
+  tickRateMs: number;
+  theme: "void" | "neon" | "terminal";
+  riskTolerance: "conservative" | "balanced" | "aggressive";
 }
 
 // ── Context Interface ─────────────────────────────────────────────────────────
@@ -231,6 +234,9 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     aiAggression: "medium",
     highContrast: false,
     showTooltips: true,
+    tickRateMs: 1500,
+    theme: "void",
+    riskTolerance: "balanced",
   });
 
   const updateSettings = useCallback((newSettings: Partial<AppSettings>) => {
@@ -279,9 +285,9 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!isTicking || playbackMode) return;
-    const id = setInterval(manualTick, 1500);
+    const id = setInterval(manualTick, settings.tickRateMs);
     return () => clearInterval(id);
-  }, [isTicking, manualTick, playbackMode]);
+  }, [isTicking, manualTick, playbackMode, settings.tickRateMs]);
 
   // ── Historical Playback ──────────────────────────────────────────────────
 

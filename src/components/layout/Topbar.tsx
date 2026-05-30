@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Activity, Bell, RefreshCw, Wifi } from "lucide-react";
 import { useEffect, useState } from "react";
 import { usePortfolioSafe } from "../portfolio/PortfolioContext";
+import Link from "next/link";
 
 // ── Live Ticker Data ─────────────────────────
 
@@ -213,12 +214,13 @@ export default function Topbar() {
         </div>
 
         {/* Avatar placeholder */}
-        <button 
+        <Link 
+          href="/settings"
           className="ml-1 w-7 h-7 rounded-full bg-gradient-to-br from-[var(--ox-accent-cyan)] to-[#7c3aed] flex items-center justify-center text-[10px] font-bold text-white hover:scale-105 transition-transform"
           title="Account Settings"
         >
           Q
-        </button>
+        </Link>
       </div>
     </header>
   );

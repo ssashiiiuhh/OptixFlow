@@ -239,8 +239,6 @@ function PortfolioDashboardContent() {
 
 export default function PortfolioDashboard() {
   return (
-    <PortfolioProvider>
-      <PortfolioDashboardContent />
-    </PortfolioProvider>
+    <PortfolioDashboardContent />
   );
 }

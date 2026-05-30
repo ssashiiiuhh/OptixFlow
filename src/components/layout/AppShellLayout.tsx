@@ -1,5 +1,6 @@
 import Sidebar from "@/components/layout/Sidebar";
 import Topbar from "@/components/layout/Topbar";
+import { PortfolioProvider } from "@/components/portfolio/PortfolioContext";
 
 /**
  * Shared shell layout for all pages that need
@@ -17,15 +18,17 @@ export default function AppShellLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex h-dvh overflow-hidden">
-      {/* Persistent sidebar across all routes */}
-      <Sidebar />
+    <PortfolioProvider>
+      <div className="flex h-dvh overflow-hidden">
+        {/* Persistent sidebar across all routes */}
+        <Sidebar />
 
-      {/* Right content: topbar + page content */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <Topbar />
-        {children}
+        {/* Right content: topbar + page content */}
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          <Topbar />
+          {children}
+        </div>
       </div>
-    </div>
+    </PortfolioProvider>
   );
 }
