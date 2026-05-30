@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from "react";
 import { bsmPrice, bsmGreeks } from "@/lib/quant/greeks/bsm";
 import { Zap, Activity, Info } from "lucide-react";
+import TactileInput from "@/components/ui/TactileInput";
 
 export default function BlackScholesEngine() {
   const [spot, setSpot] = useState<number>(100);
@@ -47,29 +48,53 @@ export default function BlackScholesEngine() {
             Parameter Injection
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <div className="flex justify-between text-[10px]"><span className="text-white/50">Spot Price (S)</span><span className="text-cyan-400 font-bold">${spot.toFixed(2)}</span></div>
-            <input type="range" min="10" max="500" step="1" value={spot} onChange={e => setSpot(Number(e.target.value))} className="accent-cyan-500" />
-          </div>
-
-          <div className="flex flex-col gap-1.5 mt-2">
-            <div className="flex justify-between text-[10px]"><span className="text-white/50">Strike Price (K)</span><span className="text-white font-bold">${strike.toFixed(2)}</span></div>
-            <input type="range" min="10" max="500" step="1" value={strike} onChange={e => setStrike(Number(e.target.value))} className="accent-white" />
-          </div>
-
-          <div className="flex flex-col gap-1.5 mt-2">
-            <div className="flex justify-between text-[10px]"><span className="text-white/50">Days to Expiry (t)</span><span className="text-white font-bold">{dte} Days</span></div>
-            <input type="range" min="1" max="365" step="1" value={dte} onChange={e => setDte(Number(e.target.value))} className="accent-white" />
-          </div>
-
-          <div className="flex flex-col gap-1.5 mt-2">
-            <div className="flex justify-between text-[10px]"><span className="text-white/50">Implied Volatility (σ)</span><span className="text-emerald-400 font-bold">{iv.toFixed(1)}%</span></div>
-            <input type="range" min="1" max="200" step="1" value={iv} onChange={e => setIv(Number(e.target.value))} className="accent-emerald-500" />
-          </div>
-
-          <div className="flex flex-col gap-1.5 mt-2">
-            <div className="flex justify-between text-[10px]"><span className="text-white/50">Risk-Free Rate (r)</span><span className="text-orange-400 font-bold">{rate.toFixed(2)}%</span></div>
-            <input type="range" min="0" max="15" step="0.25" value={rate} onChange={e => setRate(Number(e.target.value))} className="accent-orange-500" />
+          <div className="flex flex-col gap-3">
+            <TactileInput
+              label="Spot Price (S)"
+              value={spot}
+              onChange={setSpot}
+              min={10} max={5000} step={0.5}
+              colorClass="text-cyan-400"
+              validationType="spot"
+              prefix="$"
+            />
+            <TactileInput
+              label="Strike Price (K)"
+              value={strike}
+              onChange={setStrike}
+              min={10} max={5000} step={0.5}
+              colorClass="text-white"
+              validationType="strike"
+              spotReference={spot}
+              prefix="$"
+            />
+            <TactileInput
+              label="Days to Expiry (t)"
+              value={dte}
+              onChange={setDte}
+              min={0} max={365} step={1}
+              colorClass="text-white"
+              validationType="dte"
+              suffix="d"
+            />
+            <TactileInput
+              label="Implied Volatility (σ)"
+              value={iv}
+              onChange={setIv}
+              min={1} max={1000} step={1}
+              colorClass="text-emerald-400"
+              validationType="iv"
+              suffix="%"
+            />
+            <TactileInput
+              label="Risk-Free Rate (r)"
+              value={rate}
+              onChange={setRate}
+              min={0} max={25} step={0.25}
+              colorClass="text-orange-400"
+              validationType="rate"
+              suffix="%"
+            />
           </div>
         </div>
 

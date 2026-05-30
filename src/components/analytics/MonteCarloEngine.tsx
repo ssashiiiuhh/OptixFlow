@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { simulatePaths } from "@/lib/quant/simulation/montecarlo";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, AreaChart, Area } from "recharts";
 import { Compass, Settings, Loader2 } from "lucide-react";
+import TactileInput from "@/components/ui/TactileInput";
 
 export default function MonteCarloEngine() {
   const [spot, setSpot] = useState<number>(100);
@@ -108,36 +109,64 @@ export default function MonteCarloEngine() {
             Simulation Parameters
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <div className="flex justify-between text-[10px]"><span className="text-white/50">Spot Price (S)</span><span className="text-white font-bold">${spot.toFixed(2)}</span></div>
-            <input type="range" min="10" max="500" step="1" value={spot} onChange={e => setSpot(Number(e.target.value))} className="accent-white" />
-          </div>
-
-          <div className="flex flex-col gap-1.5 mt-2">
-            <div className="flex justify-between text-[10px]"><span className="text-white/50">Implied Volatility (σ)</span><span className="text-purple-400 font-bold">{iv.toFixed(1)}%</span></div>
-            <input type="range" min="1" max="200" step="1" value={iv} onChange={e => setIv(Number(e.target.value))} className="accent-purple-500" />
-          </div>
-
-          <div className="flex flex-col gap-1.5 mt-2">
-            <div className="flex justify-between text-[10px]"><span className="text-white/50">Risk-Free Rate (r)</span><span className="text-white font-bold">{rate.toFixed(2)}%</span></div>
-            <input type="range" min="0" max="15" step="0.25" value={rate} onChange={e => setRate(Number(e.target.value))} className="accent-white" />
-          </div>
-
-          <div className="flex flex-col gap-1.5 mt-2">
-            <div className="flex justify-between text-[10px]"><span className="text-white/50">Simulated DTE</span><span className="text-white font-bold">{dte} Days</span></div>
-            <input type="range" min="1" max="365" step="1" value={dte} onChange={e => setDte(Number(e.target.value))} className="accent-white" />
+          <div className="flex flex-col gap-3">
+            <TactileInput
+              label="Spot Price (S)"
+              value={spot}
+              onChange={setSpot}
+              min={10} max={5000} step={0.5}
+              colorClass="text-white"
+              validationType="spot"
+              prefix="$"
+            />
+            <TactileInput
+              label="Implied Volatility (σ)"
+              value={iv}
+              onChange={setIv}
+              min={1} max={1000} step={1}
+              colorClass="text-purple-500"
+              validationType="iv"
+              suffix="%"
+            />
+            <TactileInput
+              label="Risk-Free Rate (r)"
+              value={rate}
+              onChange={setRate}
+              min={0} max={25} step={0.25}
+              colorClass="text-white"
+              validationType="rate"
+              suffix="%"
+            />
+            <TactileInput
+              label="Simulated DTE"
+              value={dte}
+              onChange={setDte}
+              min={1} max={365} step={1}
+              colorClass="text-white"
+              validationType="dte"
+              suffix="d"
+            />
           </div>
 
           <div className="h-px bg-white/5 my-2" />
 
-          <div className="flex flex-col gap-1.5">
-            <div className="flex justify-between text-[10px]"><span className="text-white/50">Simulation Paths (N)</span><span className="text-cyan-400 font-bold">{pathsCount.toLocaleString()}</span></div>
-            <input type="range" min="100" max="10000" step="100" value={pathsCount} onChange={e => setPathsCount(Number(e.target.value))} className="accent-cyan-500" />
-          </div>
-
-          <div className="flex flex-col gap-1.5 mt-2">
-            <div className="flex justify-between text-[10px]"><span className="text-white/50">Time Steps (dt)</span><span className="text-cyan-400 font-bold">{stepsCount}</span></div>
-            <input type="range" min="5" max="252" step="5" value={stepsCount} onChange={e => setStepsCount(Number(e.target.value))} className="accent-cyan-500" />
+          <div className="flex flex-col gap-3">
+            <TactileInput
+              label="Simulation Paths (N)"
+              value={pathsCount}
+              onChange={setPathsCount}
+              min={100} max={10000} step={100}
+              colorClass="text-cyan-400"
+              validationType="paths"
+            />
+            <TactileInput
+              label="Time Steps (dt)"
+              value={stepsCount}
+              onChange={setStepsCount}
+              min={5} max={252} step={5}
+              colorClass="text-cyan-400"
+              validationType="steps"
+            />
           </div>
         </div>
 

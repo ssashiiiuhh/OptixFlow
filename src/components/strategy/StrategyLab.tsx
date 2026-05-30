@@ -10,6 +10,8 @@ import {
   Shield, Activity, Sparkles, TrendingUp, HelpCircle, ChevronRight, Flame, AlertCircle,
   ShieldAlert, ShieldCheck
 } from "lucide-react";
+import TactileInput from "@/components/ui/TactileInput";
+import { useScenarioHistory, ScenarioState } from "@/hooks/useScenarioHistory";
 import {
   buildDynamicChartSnapshot, computeDynamicMetrics, getStrategyLegs,
   TOTAL_DTE
@@ -90,7 +92,94 @@ function GreekCard({ label, value, unit, description, interpretation, color, glo
 export default function StrategyLab() {
   // Real-time market subscription state
   const [assets, setAssets] = useState<Record<string, MarketAsset>>({});
-  const [selectedTicker, setSelectedTicker] = useState("SPY");
+  
+  const [revertLog, setRevertLog] = useState<string | null>(null);
+
+  const {
+    state,
+    update,
+    commit,
+    undo,
+    redo,
+    saveSnapshot,
+    loadSnapshot,
+    snapshots,
+    canUndo,
+    canRedo,
+  } = useScenarioHistory({
+    selectedTicker: "SPY",
+    strategy: "Long Call",
+    spot: 100,
+    strike: 100,
+    spreadWidth: 5,
+    dte: TOTAL_DTE,
+    iv: 30,
+    quantity: 1,
+  }, (prevState, currentState) => {
+    const prevMetrics = computeDynamicMetrics(
+      prevState.strategy, prevState.spot, prevState.strike, prevState.dte,
+      prevState.iv, initialSpot, initialIv, prevState.spreadWidth
+    );
+    const curMetrics = computeDynamicMetrics(
+      currentState.strategy, currentState.spot, currentState.strike, currentState.dte,
+      currentState.iv, initialSpot, initialIv, currentState.spreadWidth
+    );
+
+    const deltaGamma = (curMetrics.gamma - prevMetrics.gamma);
+    const gammaPct = prevMetrics.gamma !== 0 ? (deltaGamma / Math.abs(prevMetrics.gamma)) * 100 : 0;
+    const deltaTheta = (curMetrics.theta - prevMetrics.theta);
+
+    let gammaText = `Gamma exposure ${deltaGamma > 0 ? 'increased' : 'reduced'} by ${Math.abs(gammaPct).toFixed(1)}%`;
+    let thetaText = `Theta bleed ${deltaTheta > 0 ? 'worsened' : 'improved'} by $${Math.abs(deltaTheta).toFixed(1)}/day`;
+
+    setRevertLog(`REVERT TRIGGERED: ${gammaText} | ${thetaText}`);
+    setTimeout(() => setRevertLog(null), 8000);
+  });
+
+  const { selectedTicker, strategy, spot, strike, spreadWidth, dte, iv, quantity } = state;
+
+  const setStrategy = (val: string | ((prev: string) => string)) => {
+    const next = typeof val === 'function' ? val(strategy) : val;
+    update({ strategy: next });
+    commit({ strategy: next });
+  };
+  const setSpot = (val: number | ((prev: number) => number)) => update({ spot: typeof val === 'function' ? val(spot) : val });
+  const setStrike = (val: number | ((prev: number) => number)) => update({ strike: typeof val === 'function' ? val(strike) : val });
+  const setSpreadWidth = (val: number | ((prev: number) => number)) => update({ spreadWidth: typeof val === 'function' ? val(spreadWidth) : val });
+  const setDte = (val: number | ((prev: number) => number)) => update({ dte: typeof val === 'function' ? val(dte) : val });
+  const setIv = (val: number | ((prev: number) => number)) => update({ iv: typeof val === 'function' ? val(iv) : val });
+  const setQuantity = (val: number | ((prev: number) => number)) => {
+    const next = typeof val === 'function' ? val(quantity) : val;
+    update({ quantity: next });
+    commit({ quantity: next });
+  };
+  const setSelectedTicker = (val: string) => {
+    update({ selectedTicker: val });
+    commit({ selectedTicker: val });
+  };
+
+  const [autoHedge, setAutoHedge] = useState(false);
+  const [comparisonStrategy, setComparisonStrategy] = useState<string | null>(null);
+  const [initialSpot, setInitialSpot] = useState(100);
+  const [initialIv, setInitialIv] = useState(30);
+
+  // Global Keyboard listener for Undo/Redo
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (document.activeElement?.tagName === 'INPUT') return;
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
+        if (e.shiftKey) {
+          e.preventDefault();
+          redo();
+        } else {
+          e.preventDefault();
+          undo();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [undo, redo]);
 
   useEffect(() => {
     const unsubscribe = marketDataService.subscribe((updatedAssets) => {
@@ -102,23 +191,6 @@ export default function StrategyLab() {
   const activeAsset = useMemo(() => {
     return assets[selectedTicker] || marketDataService.getAsset(selectedTicker);
   }, [assets, selectedTicker]);
-
-  // Core Position States
-  const [strategy, setStrategy] = useState("Long Call");
-  const [spot, setSpot] = useState(100);
-  const [strike, setStrike] = useState(100);
-  const [spreadWidth, setSpreadWidth] = useState(5);
-  const [dte, setDte] = useState(TOTAL_DTE);
-  const [iv, setIv] = useState(30); // 10% to 100%
-  const [quantity, setQuantity] = useState(1);
-  const [autoHedge, setAutoHedge] = useState(false);
-
-  // Comparison State
-  const [comparisonStrategy, setComparisonStrategy] = useState<string | null>(null);
-
-  // Scenario entry Lock references
-  const [initialSpot, setInitialSpot] = useState(100);
-  const [initialIv, setInitialIv] = useState(30);
 
   // Playback States
   const [isPlaying, setIsPlaying] = useState(false);
@@ -427,6 +499,7 @@ export default function StrategyLab() {
     // Add Greek specific telemetry
     logs.push(`PORTFOLIO_EXPOSURE: Delta = ${totalDelta.toFixed(2)} | Vega = $${totalVega.toFixed(1)}`);
     logs.push(`SURVIVABILITY: Profit probability currently at ${metrics.pop}%`);
+    if (revertLog) logs.unshift(revertLog);
 
     if (activeShock) {
       logs.push(`ALERT: Volatility shock [${activeShock}] in progress...`);
@@ -548,75 +621,49 @@ export default function StrategyLab() {
 
           {/* Tactile Sliders */}
           <div className="flex flex-col gap-4">
-            {/* Spot Price Slider */}
-            <div className="flex flex-col gap-1.5">
-              <div className="flex justify-between text-[8px] font-mono uppercase tracking-widest text-white/40">
-                <span>Spot Price</span>
-                <span className="text-white font-bold">${spot.toFixed(1)}</span>
-              </div>
-              <input
-                type="range"
-                min="75"
-                max="125"
-                step="0.5"
-                value={spot}
-                onChange={e => setSpot(parseFloat(e.target.value))}
-                className="w-full h-1 bg-white/8 rounded-lg appearance-none cursor-pointer accent-white"
-              />
-            </div>
+            <TactileInput
+              label="Spot Price"
+              value={spot}
+              onChange={setSpot}
+              onCommit={(val) => commit({ spot: val })}
+              min={75} max={125} step={0.5}
+              validationType="spot"
+              prefix="$"
+            />
 
-            {/* Strike Price Slider */}
-            <div className="flex flex-col gap-1.5">
-              <div className="flex justify-between text-[8px] font-mono uppercase tracking-widest text-white/40">
-                <span>Strike Price</span>
-                <span className="text-white font-bold">${strike}</span>
-              </div>
-              <input
-                type="range"
-                min="85"
-                max="115"
-                step="1"
-                value={strike}
-                onChange={e => setStrike(parseInt(e.target.value))}
-                className="w-full h-1 bg-white/8 rounded-lg appearance-none cursor-pointer accent-white"
-              />
-            </div>
+            <TactileInput
+              label="Strike Price"
+              value={strike}
+              onChange={setStrike}
+              onCommit={(val) => commit({ strike: val })}
+              min={85} max={115} step={1}
+              validationType="strike"
+              spotReference={spot}
+              prefix="$"
+            />
 
             {/* Spread Width Slider (conditionally rendered) */}
             {(strategy.includes("Spread") || strategy === "Iron Condor") && (
-              <div className="flex flex-col gap-1.5">
-                <div className="flex justify-between text-[8px] font-mono uppercase tracking-widest text-white/40">
-                  <span>Spread Width</span>
-                  <span className="text-white font-bold">{spreadWidth} pts</span>
-                </div>
-                <input
-                  type="range"
-                  min="2.5"
-                  max="15"
-                  step="0.5"
-                  value={spreadWidth}
-                  onChange={e => setSpreadWidth(parseFloat(e.target.value))}
-                  className="w-full h-1 bg-white/8 rounded-lg appearance-none cursor-pointer accent-white"
-                />
-              </div>
+              <TactileInput
+                label="Spread Width"
+                value={spreadWidth}
+                onChange={setSpreadWidth}
+                onCommit={(val) => commit({ spreadWidth: val })}
+                min={2.5} max={50} step={0.5}
+                suffix="pts"
+              />
             )}
 
             {/* Continuous Volatility Slider */}
-            <div className="flex flex-col gap-1.5">
-              <div className="flex justify-between text-[8px] font-mono uppercase tracking-widest text-white/40">
-                <span>Implied Vol (IV)</span>
-                <span className="text-white font-bold">{iv.toFixed(1)}%</span>
-              </div>
-              <input
-                type="range"
-                min="10"
-                max="100"
-                step="0.5"
-                value={iv}
-                onChange={e => setIv(parseFloat(e.target.value))}
-                className="w-full h-1 bg-white/8 rounded-lg appearance-none cursor-pointer accent-white"
-              />
-            </div>
+            <TactileInput
+              label="Implied Vol (IV)"
+              value={iv}
+              onChange={setIv}
+              onCommit={(val) => commit({ iv: val })}
+              min={1} max={1000} step={1}
+              validationType="iv"
+              suffix="%"
+            />
 
             {/* Contract Sizing (Quantity) */}
             <div className="flex flex-col gap-2">
@@ -678,6 +725,27 @@ export default function StrategyLab() {
                 <span className="text-[9px] font-bold text-rose-400">Hedged Put</span>
                 <span className="text-[7.5px] text-white/40 uppercase tracking-wider">Protection</span>
               </button>
+            </div>
+            
+            {/* Snapshot & Undo Controls */}
+            <div className="flex flex-col gap-1.5 mt-2 pt-2 border-t border-white/5">
+              <div className="flex items-center justify-between">
+                <span className="text-[8px] font-mono text-white/30 uppercase tracking-widest">Time Machine</span>
+                <div className="flex gap-1">
+                  <button onClick={undo} disabled={!canUndo} className="w-6 h-6 flex items-center justify-center rounded bg-white/5 disabled:opacity-30 hover:bg-white/10 transition-colors" title="Undo (Cmd+Z)"><RotateCcw size={10} /></button>
+                  <button onClick={redo} disabled={!canRedo} className="w-6 h-6 flex items-center justify-center rounded bg-white/5 disabled:opacity-30 hover:bg-white/10 transition-colors" title="Redo (Cmd+Shift+Z)"><RotateCcw size={10} className="scale-x-[-1]" /></button>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-1.5">
+                <div className="flex bg-white/5 rounded-lg overflow-hidden border border-white/5">
+                  <button onClick={() => loadSnapshot("A")} className="flex-1 px-2 py-1.5 text-[8px] font-bold font-mono hover:bg-white/10 text-white/70 transition-colors">LOAD A</button>
+                  <button onClick={() => saveSnapshot("A")} className="px-2 py-1.5 text-[8px] font-bold font-mono border-l border-white/5 hover:bg-white/10 text-white/40 transition-colors">SAVE</button>
+                </div>
+                <div className="flex bg-white/5 rounded-lg overflow-hidden border border-white/5">
+                  <button onClick={() => loadSnapshot("B")} className="flex-1 px-2 py-1.5 text-[8px] font-bold font-mono hover:bg-white/10 text-white/70 transition-colors">LOAD B</button>
+                  <button onClick={() => saveSnapshot("B")} className="px-2 py-1.5 text-[8px] font-bold font-mono border-l border-white/5 hover:bg-white/10 text-white/40 transition-colors">SAVE</button>
+                </div>
+              </div>
             </div>
           </div>
         </div>

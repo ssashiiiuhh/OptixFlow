@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Shield, ShieldAlert, ShieldCheck, ShieldOff, Zap, TrendingUp, TrendingDown, AlertTriangle } from "lucide-react";
 import { usePortfolio } from "./PortfolioContext";
 import { cn } from "@/lib/utils";
+import TactileInput from "@/components/ui/TactileInput";
 
 const SEVERITY_CONFIG = {
   neutral:  { color: "var(--ox-accent-green)",  bg: "rgba(0,229,160,0.08)",   border: "rgba(0,229,160,0.2)",  label: "NEUTRAL",  icon: ShieldCheck },
@@ -143,21 +144,15 @@ export default function DeltaHedger() {
       </div>
 
       {/* Tolerance Slider */}
-      <div className="flex flex-col gap-2">
-        <div className="flex justify-between items-center text-[8px] font-mono text-[var(--ox-text-muted)] uppercase">
-          <span>Tolerance Control</span>
-          <span className="font-bold text-[var(--ox-accent-cyan)]">±{hedgeTolerance}Δ</span>
-        </div>
-        <input
-          type="range"
-          min="10"
-          max="500"
-          step="10"
-          value={hedgeTolerance}
-          onChange={(e) => setHedgeTolerance(Number(e.target.value))}
-          className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-[var(--ox-accent-cyan)] focus:outline-none"
-        />
-      </div>
+      <TactileInput
+        label="Tolerance Control"
+        value={hedgeTolerance}
+        onChange={setHedgeTolerance}
+        min={10} max={500} step={10}
+        colorClass="text-[var(--ox-accent-cyan)]"
+        prefix="±"
+        suffix="Δ"
+      />
 
       {/* Metrics row */}
       <div className="grid grid-cols-3 gap-2">

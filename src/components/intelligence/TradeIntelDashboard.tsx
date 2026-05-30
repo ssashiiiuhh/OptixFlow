@@ -27,6 +27,7 @@ import {
   Percent,
   Clock
 } from "lucide-react";
+import TactileInput from "@/components/ui/TactileInput";
 import {
   ComposedChart,
   Area,
@@ -656,63 +657,39 @@ export default function TradeIntelDashboard() {
             <div className="mt-4 p-4 border border-white/5 bg-[#05070c]/50 rounded-2xl space-y-3.5 shrink-0 font-mono text-[10px]">
               
               {/* Sliders Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Spot Slider */}
-                <div className="space-y-1.5">
-                  <div className="flex justify-between items-center">
-                    <span className="text-white/40 uppercase text-[8px] font-bold flex items-center gap-1">
-                      <Sliders size={9} className="text-cyan-400" /> Spot Price
-                    </span>
-                    <span className="text-cyan-400 font-bold font-mono">${spot}</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="70"
-                    max="130"
-                    step="0.5"
-                    value={spot}
-                    onChange={(e) => setSpot(parseFloat(e.target.value))}
-                    className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-cyan-400"
-                  />
-                </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <TactileInput
+                  label="Spot Price"
+                  value={spot}
+                  onChange={setSpot}
+                  min={10} max={500} step={0.5}
+                  colorClass="text-cyan-400"
+                  icon={<Sliders size={9} className="text-cyan-400" />}
+                  validationType="spot"
+                  prefix="$"
+                />
 
-                {/* IV Slider */}
-                <div className="space-y-1.5">
-                  <div className="flex justify-between items-center">
-                    <span className="text-white/40 uppercase text-[8px] font-bold flex items-center gap-1">
-                      <Percent size={9} className="text-purple-400" /> Implied Vol (IV)
-                    </span>
-                    <span className="text-purple-400 font-bold font-mono">{ivPercent}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="10"
-                    max="100"
-                    step="1"
-                    value={ivPercent}
-                    onChange={(e) => setIvPercent(parseInt(e.target.value))}
-                    className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-purple-500"
-                  />
-                </div>
+                <TactileInput
+                  label="Implied Vol (IV)"
+                  value={ivPercent}
+                  onChange={setIvPercent}
+                  min={1} max={1000} step={1}
+                  colorClass="text-purple-400"
+                  icon={<Percent size={9} className="text-purple-400" />}
+                  validationType="iv"
+                  suffix="%"
+                />
 
-                {/* DTE Slider */}
-                <div className="space-y-1.5">
-                  <div className="flex justify-between items-center">
-                    <span className="text-white/40 uppercase text-[8px] font-bold flex items-center gap-1">
-                      <Clock size={9} className="text-emerald-400" /> Time to Expiry
-                    </span>
-                    <span className="text-emerald-400 font-bold font-mono">{dte} DTE</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="1"
-                    max="45"
-                    step="1"
-                    value={dte}
-                    onChange={(e) => setDte(parseInt(e.target.value))}
-                    className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-                  />
-                </div>
+                <TactileInput
+                  label="Time to Expiry"
+                  value={dte}
+                  onChange={setDte}
+                  min={0} max={365} step={1}
+                  colorClass="text-emerald-400"
+                  icon={<Clock size={9} className="text-emerald-400" />}
+                  validationType="dte"
+                  suffix="DTE"
+                />
               </div>
 
               {/* Play / Reset Row */}

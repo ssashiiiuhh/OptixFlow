@@ -109,6 +109,11 @@ Ambitious features to build out the OptixFlow ecosystem:
 - **Integration:** Replaced old implementations in `theta.ts`, `TradeIntelEngine.ts`, and `RegimeSuitabilityEngine.ts` with thin re-export shims/compatibility wrappers. Integrated `MarketDataService` to route all chain calculations and risk stress grids through the central quant engine.
 - **Validation:** Clean compilation of the entire Next.js application using Turbopack with zero errors. All routes (`/`, `/analytics`, `/portfolio`, `/playbook`, `/intelligence`, `/strategy`) prerendered and verified successfully.
 
+### Session: May 30, 2026 - Tactical UX & Historical Scenario Management
+- **Achievements:** Implemented a new `useScenarioHistory` hook architecture with separated "Transient" vs "Committed" states. This ensures frictionless 60fps scrubbing for real-time visual updates on the Greeks, while maintaining strict commit integrity for deep risk calculations. Developed a true Scenario Branching system via `localStorage`, giving traders "Snapshot A/B" workflows. Built a Telemetry Comparison engine that automatically diffs Portfolio Gamma/Theta against previous historical states upon triggering an undo (`Cmd+Z`).
+- **Integration:** Replaced all primitive `useState` variables in StrategyLab with the unified `useScenarioHistory` state object, deployed `TactileInput` slider/box hybrid components to decouple UI rendering from the 3D Black-Scholes calculations.
+- **Validation:** Deployed to Vercel and pushed to GitHub. Verified that real-time scrubbing does not trigger full re-renders of the WebGL surfaces until the "onCommit" threshold.
+
 ## 10. AI Collaboration Notes
 
 - **Workflow Successes:** Tackling discrete, highly focused interaction states (e.g., "Refine hover hierarchy", "Fix edge jitter") yields far better results than asking for massive architectural overhauls in a single prompt.
