@@ -14,6 +14,8 @@ export function aggregatePortfolioGreeks(
   let theta = 0;
   let vega = 0;
   let rho = 0;
+  let vanna = 0;
+  let volga = 0;
 
   for (const pos of positions) {
     const spot = spotPrices[pos.ticker] ?? pos.initialSpot;
@@ -34,6 +36,8 @@ export function aggregatePortfolioGreeks(
     theta += greeks.theta * qty * sign * 100;
     vega += greeks.vega * qty * sign * 100;
     rho += greeks.rho * qty * sign * 100;
+    vanna += greeks.vanna * qty * sign * 100;
+    volga += greeks.volga * qty * sign * 100;
   }
 
   return {
@@ -47,5 +51,7 @@ export function aggregatePortfolioGreeks(
     netTheta: Math.round(theta * 100) / 100,
     netVega: Math.round(vega * 100) / 100,
     netRho: Math.round(rho * 100) / 100,
+    vanna: Math.round(vanna * 100) / 100,
+    volga: Math.round(volga * 100) / 100,
   };
 }

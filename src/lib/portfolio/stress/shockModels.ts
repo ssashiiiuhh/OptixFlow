@@ -101,6 +101,8 @@ export function revalueStrategyHolding(
       theta: Math.round(aggregatedGreeks.theta * 100) / 100,
       vega: Math.round(aggregatedGreeks.vega * 100) / 100,
       rho: Math.round(aggregatedGreeks.rho * 100) / 100,
+      vanna: Math.round(aggregatedGreeks.vanna * 100) / 100,
+      volga: Math.round(aggregatedGreeks.volga * 100) / 100,
     },
   };
 }
