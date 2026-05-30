@@ -154,6 +154,8 @@ function PortfolioHeader() {
 }
 
 function PortfolioDashboardContent() {
+  const [activeTab, setActiveTab] = useState("DASHBOARD");
+
   return (
     <main className="flex-1 overflow-hidden flex flex-col relative" aria-labelledby="dashboard-title">
       {/* Ambient background */}
@@ -173,15 +175,22 @@ function PortfolioDashboardContent() {
 
       {/* ── SUB-TAB NAVIGATION ── */}
       <div className="flex px-6 border-b border-[var(--ox-border-default)] bg-[#05070a]/90 backdrop-blur-md shrink-0 z-20 font-mono text-[10px] relative">
-        <button className="px-4 py-2.5 font-bold border-b-2 border-cyan-400 text-cyan-400 transition-all">
-          DASHBOARD
-        </button>
-        <button className="px-4 py-2.5 font-bold border-b-2 border-transparent text-white/40 hover:text-white/80 transition-all">
-          TRADE LOG
-        </button>
+        {["DASHBOARD", "TRADE LOG"].map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`px-4 py-2.5 font-bold border-b-2 transition-all ${
+              activeTab === tab
+                ? "border-cyan-400 text-cyan-400"
+                : "border-transparent text-white/40 hover:text-white/80"
+            }`}
+          >
+            {tab}
+          </button>
+        ))}
       </div>
 
-      <div className="flex-1 overflow-y-auto px-5 py-4 relative z-10">
+      {activeTab === "DASHBOARD" ? (      <div className="flex-1 overflow-y-auto px-5 py-4 relative z-10">
         {/* Market Playback — collapsible transport at top */}
         <div className="mb-4">
           <MarketPlayback />
@@ -216,6 +225,11 @@ function PortfolioDashboardContent() {
           </div>
         </div>
       </div>
+      ) : (
+        <div className="flex-1 overflow-y-auto px-5 py-4 relative z-10 flex items-center justify-center text-white/50 font-mono text-sm">
+          {activeTab} under construction...
+        </div>
+      )}
       
       {/* Onboarding Tour overlay */}
       <OnboardingTour />

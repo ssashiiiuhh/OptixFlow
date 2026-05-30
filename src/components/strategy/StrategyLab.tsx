@@ -63,7 +63,6 @@ function GreekCard({ label, value, unit, description, interpretation, color, glo
         <span className="text-[10px] font-mono uppercase tracking-widest text-white/40">{label}</span>
         <span className="text-[10px] font-mono text-white/20">{description}</span>
       </div>
-
       <div className="flex items-baseline gap-1 mb-2">
         <div className="text-xl font-bold font-mono tracking-tight" style={{ color }}>
           {value >= 0 && label !== "Theta" && label !== "Gamma" ? "+" : ""}{value.toFixed(label === "Gamma" ? 3 : 2)}
@@ -162,6 +161,8 @@ export default function StrategyLab() {
   const [comparisonStrategy, setComparisonStrategy] = useState<string | null>(null);
   const [initialSpot, setInitialSpot] = useState(100);
   const [initialIv, setInitialIv] = useState(30);
+  
+  const [activeTab, setActiveTab] = useState("STRATEGY CONSTRUCTOR");
 
   // Global Keyboard listener for Undo/Redo
   useEffect(() => {
@@ -561,19 +562,24 @@ export default function StrategyLab() {
 
       {/* ── SUB-TAB NAVIGATION ── */}
       <div className="flex px-6 border-b border-white/5 bg-[#05070a]/90 backdrop-blur-md shrink-0 z-20 font-mono text-[10px] relative">
-        <button className="px-4 py-2.5 font-bold border-b-2 border-cyan-400 text-cyan-400 transition-all">
-          STRATEGY CONSTRUCTOR
-        </button>
-        <button className="px-4 py-2.5 font-bold border-b-2 border-transparent text-white/40 hover:text-white/80 transition-all">
-          SCENARIO MATRIX
-        </button>
-        <button className="px-4 py-2.5 font-bold border-b-2 border-transparent text-white/40 hover:text-white/80 transition-all">
-          SAVED STRATEGIES
-        </button>
+        {["STRATEGY CONSTRUCTOR", "SCENARIO MATRIX", "SAVED STRATEGIES"].map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`px-4 py-2.5 font-bold border-b-2 transition-all ${
+              activeTab === tab 
+                ? "border-cyan-400 text-cyan-400" 
+                : "border-transparent text-white/40 hover:text-white/80"
+            }`}
+          >
+            {tab}
+          </button>
+        ))}
       </div>
 
-      {/* ── Outer Laboratory Layout ── */}
+      {activeTab === "STRATEGY CONSTRUCTOR" ? (
       <div className="relative z-10 flex-1 grid grid-cols-[300px_1fr_320px] divide-x divide-white/5 overflow-hidden">
+        {/* ── Outer Laboratory Layout ── */}
 
         {/* ── LEFT PANEL: Position Constructor ── */}
         <div className="flex flex-col gap-5 p-5 overflow-y-auto min-w-0 bg-[#03050a]/60 backdrop-blur-md">
@@ -1285,6 +1291,11 @@ export default function StrategyLab() {
           </div>
         </div>
       </div>
+      ) : (
+        <div className="relative z-10 flex-1 flex items-center justify-center text-white/50 font-mono text-sm">
+          {activeTab} under construction...
+        </div>
+      )}
     </div>
   );
 }
