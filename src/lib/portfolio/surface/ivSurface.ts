@@ -13,6 +13,50 @@ import {
   calendarViolation,
 } from "../../quant/volatility";
 
+/**
+ * Interpolates total variance linearly between two SVI slices, given log-moneyness (k).
+ * It returns the interpolated total variance w.
+ * If targetT is outside the slices, it extrapolates w by scaling the nearest slice's w linearly by T.
+ */
+export function interpolateSVISlices(
+  k: number,
+  targetT: number,
+  slices: SVISlice[]
+): { w: number; bViol: number; cViol: number } {
+  let leftSlice = slices[0];
+  let rightSlice = slices[slices.length - 1];
+
+  for (let i = 0; i < slices.length - 1; i++) {
+    if (targetT >= slices[i].T && targetT <= slices[i + 1].T) {
+      leftSlice = slices[i];
+      rightSlice = slices[i + 1];
+      break;
+    }
+  }
+
+  const w1 = sviVariance(k, leftSlice);
+  const w2 = sviVariance(k, rightSlice);
+  
+  let w: number;
+  let cViol = 0;
+
+  if (targetT <= leftSlice.T) {
+    w = w1 * (targetT / leftSlice.T);
+  } else if (targetT >= rightSlice.T) {
+    w = w2 * (targetT / rightSlice.T);
+  } else {
+    const tRatio = (targetT - leftSlice.T) / (rightSlice.T - leftSlice.T);
+    w = w1 + tRatio * (w2 - w1);
+    cViol = calendarViolation(w1, w2);
+  }
+
+  const bViol1 = butterflyViolation(k, leftSlice);
+  const bViol2 = butterflyViolation(k, rightSlice);
+  const bViol = Math.max(bViol1, bViol2);
+
+  return { w, bViol, cViol };
+}
+
 export interface IVSurfacePoint {
   strike: number;       // Normalized strike (moneyness: K/S)
   dte: number;          // Days to expiry
@@ -81,41 +125,10 @@ export function generateIVSurface(
       const F = computeForwardPrice(spot, RISK_FREE_RATE, DIVIDEND_YIELD, T);
       const k = computeLogMoneyness(K, F);
 
-      // Find bounding slices for interpolation
-      let leftSlice = DEFAULT_SVI_STACK[0];
-      let rightSlice = DEFAULT_SVI_STACK[DEFAULT_SVI_STACK.length - 1];
-      
-      for (let i = 0; i < DEFAULT_SVI_STACK.length - 1; i++) {
-        if (T >= DEFAULT_SVI_STACK[i].T && T <= DEFAULT_SVI_STACK[i + 1].T) {
-          leftSlice = DEFAULT_SVI_STACK[i];
-          rightSlice = DEFAULT_SVI_STACK[i + 1];
-          break;
-        }
-      }
-
-      // Compute total variance at bounding slices
-      const w1 = sviVariance(k, leftSlice);
-      const w2 = sviVariance(k, rightSlice);
-      
-      let w: number;
-      if (T <= leftSlice.T) {
-        w = w1 * (T / leftSlice.T); // Extrapolate to 0 strictly linearly to avoid ghost calendar arbitrage
-      } else if (T >= rightSlice.T) {
-        w = w2; // Or flat extrapolate
-      } else {
-        // Linear Total Variance Interpolation
-        const tRatio = (T - leftSlice.T) / (rightSlice.T - leftSlice.T);
-        w = w1 + tRatio * (w2 - w1);
-      }
+      const { w, bViol, cViol } = interpolateSVISlices(k, T, DEFAULT_SVI_STACK);
 
       const iv = varianceToIV(w, T);
       
-      // Calculate violations
-      const bViol1 = butterflyViolation(k, leftSlice);
-      const bViol2 = butterflyViolation(k, rightSlice);
-      const bViol = Math.max(bViol1, bViol2);
-      
-      const cViol = calendarViolation(w1, w2);
       const maxViol = Math.max(bViol, cViol);
       
       ivBuffer[nodeIndex] = iv;

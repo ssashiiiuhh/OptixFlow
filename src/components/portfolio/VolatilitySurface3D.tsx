@@ -13,6 +13,8 @@ import { usePortfolio } from "./PortfolioContext";
 import { generateIVSurface, updateIVSurfaceAsync, type IVSurfaceGrid } from "@/lib/portfolio/surface/ivSurface";
 import { motion } from "framer-motion";
 import { Layers, RotateCcw, Maximize2, TrendingUp } from "lucide-react";
+import { surfaceVertexShader, surfaceFragmentShader } from "../analytics/SurfaceShaders";
+import SurfaceTelemetry from "../analytics/SurfaceTelemetry";
 
 const N_STRIKES = 24;
 const N_DTES = 16;
@@ -111,6 +113,7 @@ export default function VolatilitySurface3D() {
   // Target buffers for vertex lerping
   const targetZRef = useRef<Float32Array | null>(null);
   const targetColRef = useRef<Float32Array | null>(null);
+  const targetViolRef = useRef<Float32Array | null>(null);
 
   // Axis label refs (DOM elements updated directly in RAF loop)
   const labelStrikeLeft  = useRef<HTMLDivElement>(null);
@@ -126,7 +129,7 @@ export default function VolatilitySurface3D() {
 
   const buildGeometry = useCallback((grid: IVSurfaceGrid) => {
     const geo = new THREE.BufferGeometry();
-    const verts: number[] = [], colors: number[] = [], idx: number[] = [];
+    const verts: number[] = [], colors: number[] = [], idx: number[] = [], viols: number[] = [];
     for (let xi = 0; xi < N_STRIKES; xi++) {
       for (let yi = 0; yi < N_DTES; yi++) {
         const p = grid.points[xi * N_DTES + yi];
@@ -136,6 +139,7 @@ export default function VolatilitySurface3D() {
         verts.push(x, y, z);
         const col = ivToColor(p.iv, grid.minIV, grid.maxIV);
         colors.push(col.r, col.g, col.b);
+        viols.push(p.violationMagnitude || 0);
       }
     }
     for (let xi = 0; xi < N_STRIKES - 1; xi++) {
@@ -146,6 +150,7 @@ export default function VolatilitySurface3D() {
     }
     geo.setAttribute("position", new THREE.Float32BufferAttribute(verts, 3));
     geo.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+    geo.setAttribute("aViolation", new THREE.Float32BufferAttribute(viols, 1));
     geo.setIndex(idx);
     geo.computeVertexNormals();
     return geo;
@@ -158,6 +163,7 @@ export default function VolatilitySurface3D() {
     // Initialize target buffers if empty
     if (!targetZRef.current) targetZRef.current = new Float32Array(N_STRIKES * N_DTES);
     if (!targetColRef.current) targetColRef.current = new Float32Array(N_STRIKES * N_DTES * 3);
+    if (!targetViolRef.current) targetViolRef.current = new Float32Array(N_STRIKES * N_DTES);
     
     for (let xi = 0; xi < N_STRIKES; xi++) {
       for (let yi = 0; yi < N_DTES; yi++) {
@@ -169,6 +175,7 @@ export default function VolatilitySurface3D() {
         targetColRef.current[idx * 3] = col.r;
         targetColRef.current[idx * 3 + 1] = col.g;
         targetColRef.current[idx * 3 + 2] = col.b;
+        targetViolRef.current[idx] = p.violationMagnitude || 0;
       }
     }
   }, []);
@@ -256,7 +263,18 @@ export default function VolatilitySurface3D() {
     gridRef.current = ivGrid;
 
     const geo = buildGeometry(ivGrid);
-    const mat = new THREE.MeshPhongMaterial({ vertexColors: true, shininess: 60, side: THREE.DoubleSide, transparent: true, opacity: 0.88 });
+    const uniforms = {
+      uTime: { value: 0 },
+    };
+    const mat = new THREE.ShaderMaterial({
+      vertexShader: surfaceVertexShader,
+      fragmentShader: surfaceFragmentShader,
+      uniforms,
+      vertexColors: true,
+      side: THREE.DoubleSide,
+      transparent: true,
+      depthWrite: false,
+    });
     const mesh = new THREE.Mesh(geo, mat);
     scene.add(mesh);
     meshRef.current = mesh;
@@ -296,6 +314,7 @@ export default function VolatilitySurface3D() {
       if (mesh && targetZRef.current && targetColRef.current) {
         const posA = mesh.geometry.getAttribute("position") as THREE.BufferAttribute;
         const colA = mesh.geometry.getAttribute("color") as THREE.BufferAttribute;
+        const violA = mesh.geometry.getAttribute("aViolation") as THREE.BufferAttribute;
         let needsUpdate = false;
         
         for (let i = 0; i < N_STRIKES * N_DTES; i++) {
@@ -317,12 +336,27 @@ export default function VolatilitySurface3D() {
             );
             needsUpdate = true;
           }
+
+          if (targetViolRef.current) {
+            const currentV = violA.getX(i);
+            const targetV = targetViolRef.current[i];
+            if (Math.abs(currentV - targetV) > 0.001) {
+              violA.setX(i, currentV + (targetV - currentV) * 0.1);
+              needsUpdate = true;
+            }
+          }
         }
         
         if (needsUpdate) {
           posA.needsUpdate = true;
           colA.needsUpdate = true;
+          if (violA) violA.needsUpdate = true;
           mesh.geometry.computeVertexNormals();
+        }
+
+        // Update uTime uniform for shader pulse
+        if ((mesh.material as THREE.ShaderMaterial).uniforms) {
+          (mesh.material as THREE.ShaderMaterial).uniforms.uTime.value = performance.now() / 1000.0;
         }
       }
 
@@ -478,6 +512,9 @@ export default function VolatilitySurface3D() {
         <div className="absolute top-2 left-1/2 -translate-x-1/2 pointer-events-none">
           <span className="text-[8px] font-mono text-[var(--ox-text-muted)] opacity-25">drag · rotate · scroll to zoom</span>
         </div>
+
+        {/* Telemetry Overlay */}
+        <SurfaceTelemetry grid={gridRef.current} />
       </div>
 
       {/* Bottom bar */}

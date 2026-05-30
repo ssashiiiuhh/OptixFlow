@@ -174,6 +174,7 @@ interface PortfolioContextType {
   aiNarrationLines: string[];
   isNarrating: boolean;
   requestAINarration: () => void;
+  addAiNarrationLine: (line: string) => void;
 
   // Settings
   settings: AppSettings;
@@ -614,6 +615,16 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     }
   }, [tickCount]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const addAiNarrationLine = useCallback((line: string) => {
+    setAiNarrationLines((prev) => {
+      if (!prev.includes(line)) {
+        const next = [...prev, line];
+        return next.length > 40 ? next.slice(next.length - 40) : next;
+      }
+      return prev;
+    });
+  }, []);
+
   // ── Context Value ─────────────────────────────────────────────────────────
 
   return (
@@ -638,7 +649,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
         playbackMode, playbackScenarioId, playbackFrameIndex,
         playbackIsPlaying, setPlaybackScenario, stepPlayback,
         togglePlayback, resetPlayback, exitPlayback,
-        aiNarrationLines, isNarrating, requestAINarration,
+        aiNarrationLines, isNarrating, requestAINarration, addAiNarrationLine,
         settings, updateSettings,
       }}
     >

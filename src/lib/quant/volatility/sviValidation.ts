@@ -27,7 +27,9 @@ export function butterflyViolation(k: number, slice: SVISlice): number {
 
   const g_k = term1 * term1 - term2 + term3;
 
-  return g_k >= 0 ? 0 : -g_k;
+  const raw_violation = g_k >= 0 ? 0 : -g_k;
+  // Normalize: 0.1 negative density is a severe violation
+  return Math.min(1.0, Math.max(0, raw_violation * 10));
 }
 
 /**
@@ -36,8 +38,10 @@ export function butterflyViolation(k: number, slice: SVISlice): number {
  *
  * @param w1 - Total variance at T1
  * @param w2 - Total variance at T2 (where T2 > T1)
- * @returns violationMagnitude (0 if no violation, > 0 if violated)
+ * @returns violationMagnitude (0.0 to 1.0)
  */
 export function calendarViolation(w1: number, w2: number): number {
-  return w2 >= w1 ? 0 : w1 - w2;
+  const raw_violation = w2 >= w1 ? 0 : w1 - w2;
+  // Normalize: 0.05 variance inversion is severe
+  return Math.min(1.0, Math.max(0, raw_violation * 20));
 }
